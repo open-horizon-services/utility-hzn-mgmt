@@ -2,6 +2,23 @@
 
 The purpose of this repo is to collect scripts that will automate creation, listing, and removing of organizations, users, services, and nodes in an Open Horizon instance.
 
+## Project Structure
+
+```
+hzn-utils/
+├── lib/
+│   └── common.sh              # Shared library with common functions
+├── list-orgs.sh               # Interactive organization listing (hzn CLI)
+├── list-users.sh              # Interactive user listing (hzn CLI)
+├── list-a-orgs.sh             # API-based organization listing
+├── list-a-users.sh            # API-based user listing
+├── list-a-org-nodes.sh        # API-based organization node listing
+├── list-a-user-nodes.sh       # API-based user node listing
+├── test-credentials.sh        # Credential validation tool
+├── test-hzn.sh                # CLI installation test
+└── *.env                      # Credential files (not in git)
+```
+
 ## Available Scripts
 
 This repository contains several utility scripts for managing Open Horizon instances:
@@ -14,9 +31,19 @@ This repository contains several utility scripts for managing Open Horizon insta
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
 - **`list-a-users.sh`** - List users using REST API with multiple output modes
+- **`list-a-org-nodes.sh`** - List nodes in an organization using REST API
+- **`list-a-user-nodes.sh`** - List nodes for a specific user using REST API
 
 ### Testing Scripts
 - **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
+
+### Shared Library
+- **`lib/common.sh`** - Common functions used across all scripts including:
+  - Color-coded output functions
+  - Credential management and validation
+  - Environment file selection
+  - Tool availability checks (curl, jq, hzn)
+  - Error handling and cleanup
 
 ## Usage
 

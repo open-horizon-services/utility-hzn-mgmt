@@ -3,16 +3,8 @@
 # Script to list Open Horizon nodes for a specific user using REST API
 # Usage: ./list-a-user-nodes.sh [OPTIONS] [USER_ID] [ENV_FILE]
 
-set -e
-
-# Color codes for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
-NC='\033[0m' # No Color
+# Strict error handling
+set -euo pipefail
 
 # Default output mode
 VERBOSE=false
@@ -80,128 +72,16 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Function to print colored messages (skip in JSON-only mode)
-print_info() {
-    if [ "$JSON_ONLY" = false ]; then
-        echo -e "${BLUE}ℹ${NC} $1"
-    fi
-}
+# Get script directory and source common library
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/lib/common.sh"
 
-print_success() {
-    if [ "$JSON_ONLY" = false ]; then
-        echo -e "${GREEN}✓${NC} $1"
-    fi
-}
+# Setup cleanup trap
+setup_cleanup_trap
 
-print_error() {
-    if [ "$JSON_ONLY" = false ]; then
-        echo -e "${RED}✗${NC} $1"
-    else
-        # In JSON mode, still output errors to stderr
-        echo -e "${RED}✗${NC} $1" >&2
-    fi
-}
-
-print_warning() {
-    if [ "$JSON_ONLY" = false ]; then
-        echo -e "${YELLOW}⚠${NC} $1"
-    fi
-}
-
-print_header() {
-    if [ "$JSON_ONLY" = false ]; then
-        echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-        echo -e "${CYAN}$1${NC}"
-        echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    fi
-}
-
-# Handle .env file selection first (we need credentials to extract default user)
-if [ -n "$ENV_FILE" ]; then
-    # Env file specified as argument
-    if [ ! -f "$ENV_FILE" ]; then
-        print_error "Specified .env file not found: $ENV_FILE"
-        echo ""
-        echo "Please provide a valid .env file path"
-        exit 1
-    fi
-    selected_file="$ENV_FILE"
-    if [ "$JSON_ONLY" = false ]; then
-        print_success "Using specified file: $(basename "$selected_file")"
-        echo ""
-    fi
-else
-    # No env file specified, find and prompt for selection
-    if [ "$JSON_ONLY" = false ]; then
-        print_info "Searching for .env files..."
-    fi
-    env_files=()
-    while IFS= read -r file; do
-        env_files+=("$file")
-    done < <(find . -maxdepth 1 -name "*.env" -type f | sort)
-
-    if [ ${#env_files[@]} -eq 0 ]; then
-        print_error "No .env files found in the current directory"
-        echo ""
-        echo "Please create a .env file with the following variables:"
-        echo "  HZN_EXCHANGE_URL=https://<exchange-host>/api/v1"
-        echo "  HZN_ORG_ID=<your-org-id>"
-        echo "  HZN_EXCHANGE_USER_AUTH=<user>:<password>"
-        echo ""
-        echo "Or specify a .env file: $0 $USER_ID path/to/file.env"
-        exit 1
-    fi
-
-    print_success "Found ${#env_files[@]} .env file(s)"
-    echo ""
-
-    # Display available .env files
-    echo "Available credential files:"
-    for i in "${!env_files[@]}"; do
-        filename=$(basename "${env_files[$i]}")
-        echo "  $((i+1)). $filename"
-    done
-    echo ""
-
-    # Prompt user to select a file
-    while true; do
-        read -p "Select a file (1-${#env_files[@]}): " selection
-        
-        if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "${#env_files[@]}" ]; then
-            selected_file="${env_files[$((selection-1))]}"
-            break
-        else
-            print_error "Invalid selection. Please enter a number between 1 and ${#env_files[@]}"
-        fi
-    done
-
-    print_success "Selected: $(basename "$selected_file")"
-    echo ""
-fi
-
-# Source the selected .env file
-print_info "Loading credentials from $(basename "$selected_file")..."
-set -a  # Automatically export all variables
-source "$selected_file"
-set +a
-
-# Verify required environment variables are set
-required_vars=("HZN_EXCHANGE_URL" "HZN_ORG_ID" "HZN_EXCHANGE_USER_AUTH")
-missing_vars=()
-
-for var in "${required_vars[@]}"; do
-    if [ -z "${!var}" ]; then
-        missing_vars+=("$var")
-    fi
-done
-
-if [ ${#missing_vars[@]} -gt 0 ]; then
-    print_error "Missing required environment variables:"
-    for var in "${missing_vars[@]}"; do
-        echo "  - $var"
-    done
-    exit 1
-fi
+# Handle .env file selection and load credentials
+select_env_file "$ENV_FILE" || exit 1
+load_credentials "$selected_file" || exit 1
 
 # If USER_ID not provided, extract it from HZN_EXCHANGE_USER_AUTH
 if [ -z "$USER_ID" ]; then
@@ -222,11 +102,8 @@ if [ -z "$USER_ID" ]; then
     fi
 fi
 
+# Display configuration with user info
 if [ "$JSON_ONLY" = false ]; then
-    print_success "Credentials loaded successfully"
-    echo ""
-
-    # Display configuration
     print_info "Configuration:"
     echo "  Exchange URL: $HZN_EXCHANGE_URL"
     echo "  Organization: $HZN_ORG_ID"
@@ -236,33 +113,13 @@ if [ "$JSON_ONLY" = false ]; then
 fi
 
 # Check if curl is installed
-if ! command -v curl &> /dev/null; then
-    print_error "curl is not installed or not in PATH"
-    echo ""
-    echo "Please install curl to use this script"
-    exit 1
-fi
+check_curl || exit 1
 
 # Check if jq is installed (optional but recommended)
-JQ_AVAILABLE=false
-if command -v jq &> /dev/null; then
-    JQ_AVAILABLE=true
-fi
+check_jq
 
 # Parse authentication credentials
-# HZN_EXCHANGE_USER_AUTH is already in format org/user:password or user:password
-# Check if it already contains org/ prefix
-if [[ "$HZN_EXCHANGE_USER_AUTH" == *"/"* ]]; then
-    # Already has org/user:password format
-    FULL_AUTH="$HZN_EXCHANGE_USER_AUTH"
-    AUTH_USER="${HZN_EXCHANGE_USER_AUTH%%:*}"  # This will be org/user
-    AUTH_USER="${AUTH_USER#*/}"  # Extract just the user part
-else
-    # Only has user:password format, need to prepend org
-    AUTH_USER="${HZN_EXCHANGE_USER_AUTH%%:*}"
-    AUTH_PASS="${HZN_EXCHANGE_USER_AUTH#*:}"
-    FULL_AUTH="${HZN_ORG_ID}/${AUTH_USER}:${AUTH_PASS}"
-fi
+parse_auth
 
 # Use the Exchange URL as-is (it should already include the API version path)
 # Remove trailing slash if present

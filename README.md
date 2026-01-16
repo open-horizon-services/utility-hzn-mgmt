@@ -2,6 +2,21 @@
 
 The purpose of this repo is to collect scripts that will automate creation, listing, and removing of organizations, users, services, and nodes in an Open Horizon instance.
 
+## Project Structure
+
+```
+hzn-utils/
+├── lib/
+│   └── common.sh          # Shared library with common functions
+├── list-orgs.sh           # Interactive organization listing (hzn CLI)
+├── list-users.sh          # Interactive user listing (hzn CLI)
+├── list-a-orgs.sh         # API-based organization listing
+├── list-a-users.sh        # API-based user listing
+├── test-credentials.sh    # Credential validation tool
+├── test-hzn.sh           # CLI installation test
+└── *.env                  # Credential files (not in git)
+```
+
 ## Available Scripts
 
 This repository contains several utility scripts for managing Open Horizon instances:
@@ -9,7 +24,6 @@ This repository contains several utility scripts for managing Open Horizon insta
 ### Interactive Scripts (using hzn CLI)
 - **`list-orgs.sh`** - Interactive script to list organizations and optionally view users
 - **`list-users.sh`** - Interactive script to list users in an organization
-- **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
@@ -18,6 +32,7 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`list-a-org-nodes.sh`** - List all nodes in an organization using REST API
 
 ### Testing Scripts
+- **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 - **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
 
 ## Quick Start
