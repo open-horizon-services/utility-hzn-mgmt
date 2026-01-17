@@ -56,6 +56,7 @@ done
 setup_cleanup_trap
 
 # Select and load credentials
+selected_file=""  # Will be set by select_env_file
 select_env_file "$ENV_FILE_ARG" || exit 1
 load_credentials "$selected_file" || exit 1
 

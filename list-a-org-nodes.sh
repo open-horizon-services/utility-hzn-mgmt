@@ -67,6 +67,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 setup_cleanup_trap
 
 # Handle .env file selection and load credentials
+selected_file=""  # Will be set by select_env_file
 select_env_file "$ENV_FILE" || exit 1
 load_credentials "$selected_file" || exit 1
 

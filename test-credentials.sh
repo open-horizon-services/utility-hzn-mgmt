@@ -16,6 +16,7 @@ setup_cleanup_trap
 
 # Select and load credentials
 # shellcheck disable=SC2119  # Function doesn't use positional parameters
+selected_file=""  # Will be set by select_env_file
 select_env_file || exit 1
 load_credentials "$selected_file" || exit 1
 
