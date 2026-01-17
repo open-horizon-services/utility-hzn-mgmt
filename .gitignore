@@ -1,47 +1,39 @@
-# Environment files with credentials
+# Credential files (except example and test fixtures)
 *.env
 !example.env
-mycreds.env
+!tests/fixtures/*.env
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-# Python lib directories (but not our bash lib/ directory)
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-venv/
-ENV/
-env/
+# Test artifacts
+tests/**/*.log
+tests/**/*.xml
+tests/**/tmp/
+tests/**/.bats-*
 
-# IDE
-.vscode/
-.idea/
+# Temporary files
+*.tmp
 *.swp
 *.swo
 *~
 .DS_Store
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-.tox/
+# IDE files
+.vscode/
+.idea/
+*.iml
 
-# Logs
-*.log
+# Node modules (if using npm for bats)
+node_modules/
+
+# Python virtual environment (if used)
+venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+dist/
+build/
+*.tar.gz
+*.zip
+
+# OS files
+Thumbs.db

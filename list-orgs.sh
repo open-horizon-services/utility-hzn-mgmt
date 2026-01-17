@@ -52,6 +52,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Setup cleanup trap
+# shellcheck disable=SC2119  # Function doesn't use positional parameters
 setup_cleanup_trap
 
 # Select and load credentials

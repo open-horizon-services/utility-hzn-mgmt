@@ -220,6 +220,7 @@ EOF
 UNIT_ONLY=false
 INTEGRATION_ONLY=false
 SHELLCHECK_ONLY=false
+# shellcheck disable=SC2034  # VERBOSE is reserved for future use
 VERBOSE=false
 
 while [[ $# -gt 0 ]]; do
@@ -238,6 +239,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v|--verbose)
             VERBOSE=true
+            export VERBOSE  # Export for use in test scripts
             shift
             ;;
         -h|--help)

@@ -77,6 +77,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 # Setup cleanup trap
+# shellcheck disable=SC2119  # Function doesn't use positional parameters
 setup_cleanup_trap
 
 # Handle .env file selection and load credentials

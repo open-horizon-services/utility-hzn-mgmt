@@ -11,9 +11,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
 # Setup cleanup trap
+# shellcheck disable=SC2119  # Function doesn't use positional parameters
 setup_cleanup_trap
 
 # Select and load credentials
+# shellcheck disable=SC2119  # Function doesn't use positional parameters
 select_env_file || exit 1
 load_credentials "$selected_file" || exit 1
 

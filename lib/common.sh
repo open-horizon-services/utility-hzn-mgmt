@@ -66,7 +66,10 @@ find_env_files() {
 # Arguments:
 #   $1 - Optional: Pre-selected env file path
 # Returns: Selected file path in the global variable selected_file
+# shellcheck disable=SC2034  # selected_file is used by calling scripts
 select_env_file() {
+    # Declare selected_file for shellcheck
+    selected_file=""
     local env_file_arg="${1:-}"
     
     # If env file specified as argument, use it
@@ -344,7 +347,7 @@ setup_cleanup_trap() {
     
     # Default cleanup function if not provided
     if [ "$cleanup_func" = "cleanup" ] && ! declare -f cleanup &> /dev/null; then
-        # shellcheck disable=SC2329  # Function invoked indirectly via trap
+        # shellcheck disable=SC2317,SC2329  # Function invoked indirectly via trap
         cleanup() {
             local exit_code=$?
             # Clean up temporary files if they exist
