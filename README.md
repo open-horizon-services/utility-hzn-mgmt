@@ -2,6 +2,16 @@
 
 The purpose of this repo is to collect scripts that will automate creation, listing, and removing of organizations, users, services, and nodes in an Open Horizon instance.
 
+## Design Goals and Philosophy
+
+The scripts in this repo are intended to be used by an Open Horizon administrator to manage their Open Horizon instance.  They should be able to operate in three modes:
+
+1. Default, interactive exploration mode where they provide most of the information a person is likely to need, prompt for missing information, and link to more details, if desired.
+2. Verbose mode where all of the details are listed exhaustively, where a person is trying to find specific details.
+3. Minimal, programmatic mode where all of the arguments can be passed to the script and the response is machine-readable in JSON format.  This can be integrated into tools, tests, and automation.
+
+The scripts are designed to be simple, easy to use, and require minimal setup.  They assume bash 3.x or earlier, jq, and curl.  They do not need to be run on the same machine as the Open Horizon instance.
+
 ## Project Structure
 
 ```
@@ -38,6 +48,9 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`list-a-user-deployment.sh`** - List deployment policies for a specific user using REST API
 
 ### Testing Scripts
+- **`test-credentials.sh`** - Test and validate your Open Horizon credentials
+- **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
+- **`run-tests.sh`** - Run the complete test suite (unit and integration tests)
 - **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 - **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
 
@@ -615,3 +628,41 @@ Contributions are welcome! Please follow the coding standards outlined in `AGENT
 - [Open Horizon GitHub](https://github.com/open-horizon)
 - [Horizon CLI Reference](https://github.com/open-horizon/anax/blob/master/docs/cli.md)
 - [Exchange API Documentation](https://github.com/open-horizon/exchange-api)
+
+## Testing
+
+This project includes a comprehensive test suite using bats-core (Bash Automated Testing System). For detailed testing information, see [TESTING.md](TESTING.md).
+
+### Quick Start
+
+```bash
+# Install bats (macOS)
+brew install bats-core
+
+# Install bats (Linux)
+sudo apt-get install bats
+
+# Run all tests
+./run-tests.sh
+
+# Run specific test types
+./run-tests.sh --unit          # Unit tests only
+./run-tests.sh --integration   # Integration tests only
+./run-tests.sh --shellcheck    # Static analysis only
+```
+
+### Test Structure
+
+- **Unit Tests** (`tests/unit/`): Test individual functions in `lib/common.sh`
+- **Integration Tests** (`tests/integration/`): Test complete scripts end-to-end
+- **Fixtures** (`tests/fixtures/`): Test data and mock credential files
+- **CI/CD** (`.github/workflows/test.yml`): Automated testing on push and PR
+
+### Writing Tests
+
+See [TESTING.md](TESTING.md) for comprehensive documentation on:
+- Writing new tests
+- Test best practices
+- Using test helpers
+- Debugging test failures
+- Contributing test coverage

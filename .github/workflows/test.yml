@@ -125,11 +125,11 @@ jobs:
       
       - name: Check for .env files in git
         run: |
-          if git ls-files | grep -E "\.env$" | grep -v "example.env"; then
+          if git ls-files | grep -E "\.env$" | grep -v "example.env" | grep -v "tests/fixtures/"; then
             echo "Error: .env files should not be committed"
             exit 1
           fi
-          echo "No .env files found in git (except example.env)"
+          echo "No .env files found in git (except example.env and test fixtures)"
 
   lint:
     name: Lint and Format Check
