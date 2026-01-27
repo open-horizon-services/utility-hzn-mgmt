@@ -307,10 +307,10 @@ make_api_call() {
     local url="${BASE_URL}${endpoint}"
     
     if [ -n "$data" ]; then
-        response=$(curl -sS -w "\n%{http_code}" -X "$method" -u "$FULL_AUTH" \
+        response=$(curl -sS -k -w "\n%{http_code}" -X "$method" -u "$FULL_AUTH" \
             -H "Content-Type: application/json" -d "$data" "$url" 2>&1)
     else
-        response=$(curl -sS -w "\n%{http_code}" -u "$FULL_AUTH" "$url" 2>&1)
+        response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "$url" 2>&1)
     fi
     
     # Extract HTTP status code (last line) - used by calling scripts
@@ -357,7 +357,7 @@ setup_cleanup_trap() {
         }
     fi
     
-    trap '$cleanup_func' EXIT INT TERM
+    trap "$cleanup_func" EXIT INT TERM
 }
 
 # Export functions and variables for use in other scripts

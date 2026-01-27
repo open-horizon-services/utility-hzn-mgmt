@@ -133,7 +133,6 @@ if [ $exit_code -eq 0 ]; then
         echo ""
         echo "Or use a pattern:"
         echo "  hzn register -o <org-id> -u <user>:<password> -p <pattern-name>"
-        all_checks_passed=false
     elif [ "$config_state" = "configured" ]; then
         print_success "Node is configured"
     else
@@ -159,8 +158,11 @@ if [ -n "$HZN_EXCHANGE_URL" ] && [ -n "$HZN_ORG_ID" ] && [ -n "$HZN_EXCHANGE_USE
     
     # Test Exchange connectivity
     print_info "Testing Exchange API connectivity..."
+    # Temporarily disable set -e to capture the exit code
+    set +e
     user_list_output=$(hzn exchange user list 2>&1)
     exit_code=$?
+    set -e
     
     if [ $exit_code -eq 0 ]; then
         print_success "Exchange API is reachable and credentials are valid"
@@ -177,6 +179,18 @@ if [ -n "$HZN_EXCHANGE_URL" ] && [ -n "$HZN_ORG_ID" ] && [ -n "$HZN_EXCHANGE_USE
         echo "$user_list_output"
         echo ""
         echo "Troubleshooting:"
+        # Check for specific error types and provide targeted advice
+        if echo "$user_list_output" | grep -q -E "(tls|certificate|x509|SSL)"; then
+            echo "  ** SSL/TLS Certificate Error Detected **"
+            echo "  Try setting: export HZN_SSL_SKIP_VERIFY=true"
+            echo "  Or add it to your .env file"
+            echo ""
+        fi
+        if echo "$user_list_output" | grep -q -E "(401|unauthorized|invalid-credentials)"; then
+            echo "  ** Authentication Error Detected **"
+            echo "  Verify your credentials in HZN_EXCHANGE_USER_AUTH"
+            echo ""
+        fi
         echo "  1. Verify Exchange URL is correct: $HZN_EXCHANGE_URL"
         echo "  2. Check network connectivity to Exchange"
         echo "  3. Verify credentials are correct"
