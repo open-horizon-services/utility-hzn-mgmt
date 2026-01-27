@@ -133,7 +133,6 @@ if [ $exit_code -eq 0 ]; then
         echo ""
         echo "Or use a pattern:"
         echo "  hzn register -o <org-id> -u <user>:<password> -p <pattern-name>"
-        all_checks_passed=false
     elif [ "$config_state" = "configured" ]; then
         print_success "Node is configured"
     else

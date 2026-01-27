@@ -357,7 +357,7 @@ setup_cleanup_trap() {
         }
     fi
     
-    trap '$cleanup_func' EXIT INT TERM
+    trap "$cleanup_func" EXIT INT TERM
 }
 
 # Export functions and variables for use in other scripts
