@@ -20,8 +20,10 @@ hzn-utils/
 │   └── common.sh              # Shared library with common functions
 ├── list-orgs.sh               # Interactive organization listing (hzn CLI)
 ├── list-users.sh              # Interactive user listing (hzn CLI)
+├── list-user.sh               # Current user info (hzn CLI)
 ├── list-a-orgs.sh             # API-based organization listing
 ├── list-a-users.sh            # API-based user listing
+├── list-a-user.sh             # API-based current user info
 ├── list-a-org-nodes.sh        # API-based organization node listing
 ├── list-a-user-nodes.sh       # API-based user node listing
 ├── list-a-user-services.sh    # API-based user service listing
@@ -38,10 +40,12 @@ This repository contains several utility scripts for managing Open Horizon insta
 ### Interactive Scripts (using hzn CLI)
 - **`list-orgs.sh`** - Interactive script to list organizations and optionally view users
 - **`list-users.sh`** - Interactive script to list users in an organization
+- **`list-user.sh`** - Display current authenticated user info and validate credentials
 
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
 - **`list-a-users.sh`** - List users using REST API with multiple output modes
+- **`list-a-user.sh`** - Display current authenticated user info using REST API
 - **`list-a-org-nodes.sh`** - List all nodes in an organization using REST API
 - **`list-a-user-nodes.sh`** - List nodes for a specific user using REST API
 - **`list-a-user-services.sh`** - List services for a specific user using REST API
@@ -158,6 +162,69 @@ Interactive script to list users in a specific organization. Can be called stand
 - Shows admin and hub admin status
 - Can query different organization than auth organization
 - Reuses credentials when called from list-orgs.sh
+
+### list-user.sh (Current User Info - CLI)
+
+Display information about the currently authenticated user. This validates credentials and shows user details including admin privileges.
+
+**Usage:**
+```bash
+# Interactive mode (prompts for .env file)
+./list-user.sh
+
+# Use specific .env file
+./list-user.sh mycreds.env
+```
+
+**Features:**
+- Validates user credentials against the Exchange
+- Displays user ID, email, admin status, hub admin status
+- Shows last updated timestamp and who updated the user
+- Color-coded admin status indicators
+- Detailed error messages and troubleshooting tips
+
+**Note:** Requires Exchange version 2.124.0 or above due to hzn CLI requirements. For older Exchange servers, use `list-a-user.sh` instead.
+
+### list-a-user.sh (Current User Info - API)
+
+Display information about the currently authenticated user using REST API directly. This validates credentials and shows user details including admin privileges.
+
+**Usage:**
+```bash
+# Interactive mode (prompts for .env file)
+./list-a-user.sh
+
+# Use specific .env file
+./list-a-user.sh mycreds.env
+
+# JSON output only (for piping/automation)
+./list-a-user.sh --json mycreds.env
+
+# Verbose mode with full JSON details
+./list-a-user.sh --verbose
+```
+
+**Options:**
+- `-v, --verbose` - Show detailed JSON response
+- `-j, --json` - Output raw JSON only (no colors, headers, or messages)
+- `-h, --help` - Show help message
+
+**Features:**
+- Direct REST API calls using curl (works with any Exchange version)
+- Multiple output modes (simple, verbose, JSON-only)
+- Displays user ID, email, admin status, hub admin status
+- Shows last updated timestamp and who updated the user
+- Color-coded admin status indicators
+- Supports self-signed certificates (common in Open Horizon deployments)
+- Detailed error messages and troubleshooting tips
+
+**User Information Displayed:**
+- User ID (org/username)
+- Email address
+- Org Admin status (green "Yes" if admin)
+- Hub Admin status (magenta "Yes" if hub admin)
+- Last Updated timestamp
+- Updated By (who last modified the user)
 
 ### list-a-orgs.sh (API-Based Organization Listing)
 

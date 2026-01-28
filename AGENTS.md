@@ -10,8 +10,10 @@ hzn-utils/
 │   └── common.sh              # Shared library with common functions
 ├── list-orgs.sh               # Interactive organization listing (hzn CLI)
 ├── list-users.sh              # Interactive user listing (hzn CLI)
+├── list-user.sh               # Current user info (hzn CLI)
 ├── list-a-orgs.sh             # API-based organization listing
 ├── list-a-users.sh            # API-based user listing
+├── list-a-user.sh             # API-based current user info
 ├── list-a-org-nodes.sh        # API-based organization node listing
 ├── list-a-user-nodes.sh       # API-based user node listing
 ├── list-a-user-services.sh    # API-based user service listing
@@ -28,11 +30,13 @@ This repository contains several utility scripts for managing Open Horizon insta
 ### Interactive Scripts (using hzn CLI)
 - **`list-orgs.sh`** - Interactive script to list organizations and optionally view users
 - **`list-users.sh`** - Interactive script to list users in an organization
+- **`list-user.sh`** - Display current authenticated user info and validate credentials
 - **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
 - **`list-a-users.sh`** - List users using REST API with multiple output modes
+- **`list-a-user.sh`** - Display current authenticated user info using REST API
 - **`list-a-org-nodes.sh`** - List nodes in an organization using REST API
 - **`list-a-user-nodes.sh`** - List nodes for a specific user using REST API
 - **`list-a-user-services.sh`** - List services for a specific user using REST API
