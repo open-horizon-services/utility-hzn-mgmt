@@ -467,4 +467,111 @@ hzn exchange service list
 
 **Note:** Version numbers shown in examples (e.g., 2.31.0-1528) may vary based on your Open Horizon installation.
 
+## Development Workflow
+
+### Git Workflow Pattern
+
+When performing new work in this repository:
+
+1. **Check for open issues first** - Ask the user if unsure whether to use an existing issue
+2. **If no open issue exists:**
+   - Open a new issue describing the work
+   - Label it `bug` or `enhancement` depending on the type of work
+   - Create the label if it doesn't exist in the repository
+3. **Create a branch** with the pattern `issue-#` (e.g., `issue-3`)
+4. **Before committing changes:**
+   - **Always update `README.md` and `AGENTS.md`** to document any new scripts or features
+   - Run tests: `./run-tests.sh`
+   - Run shellcheck: `shellcheck *.sh`
+5. **When committing changes:**
+   - Use the `-s` sign-off flag
+   - Prefix the commit title with `Issue #: ` (e.g., `Issue #3: Fix false failure report`)
+6. **When opening the PR:**
+   - Use the same `Issue #: ` prefix in the PR title
+   - Link to the issue in the PR description
+   - Ensure CI/CD tests pass
+
+### Design Principles
+
+1. **Three operation modes:**
+   - **Default**: Interactive exploration with prompts and helpful output
+   - **Verbose**: Exhaustive details for troubleshooting (`--verbose`)
+   - **Minimal**: Machine-readable JSON for automation (`--json`)
+
+2. **Minimal dependencies:**
+   - Bash 3.2+ compatibility (macOS support)
+   - curl (required for API scripts)
+   - jq (optional but recommended for JSON parsing)
+   - hzn CLI (optional, only for CLI-based scripts)
+
+3. **Security first:**
+   - Never commit `.env` files to version control
+   - Support multiple credential files for different environments
+   - Clear error messages for authentication failures
+   - Validate SSL certificates (with option to skip for dev environments)
+
+4. **Error handling:**
+   - Use `set -euo pipefail` for strict error handling
+   - Implement trap handlers for cleanup
+   - Provide helpful error messages with troubleshooting tips
+   - Exit with appropriate status codes
+
+5. **Testing:**
+   - Write unit tests for shared library functions
+   - Write integration tests for complete scripts
+   - Run tests before committing: `./run-tests.sh`
+   - Maintain test fixtures in `tests/fixtures/`
+
+### Code Style Guidelines
+
+- Use consistent indentation (2 spaces)
+- Add comments for complex logic
+- Use descriptive variable names
+- Follow existing patterns in the codebase
+- Use color-coded output for user-facing messages
+- Implement cleanup functions with trap handlers
+- Validate inputs before processing
+- Provide multiple output modes where appropriate
+
+### Testing Requirements
+
+Before submitting a PR:
+
+```bash
+# Run all tests
+./run-tests.sh
+
+# Run specific test types
+./run-tests.sh --unit          # Unit tests only
+./run-tests.sh --integration   # Integration tests only
+./run-tests.sh --shellcheck    # Static analysis only
+
+# Run shellcheck manually
+shellcheck *.sh lib/*.sh
+```
+
+### Documentation Requirements
+
+When adding new features:
+
+1. Update `README.md` with:
+   - Script description and usage examples
+   - Available options and flags
+   - Output format examples
+   - Troubleshooting tips
+
+2. Update `AGENTS.md` with:
+   - Technical implementation details
+   - Design decisions
+   - Integration points with other scripts
+
+3. Update `ROADMAP.md` if:
+   - Completing a roadmap item
+   - Identifying new improvement opportunities
+
+4. Add inline comments for:
+   - Complex logic or algorithms
+   - Non-obvious design decisions
+   - Workarounds for compatibility issues
+
 This guide ensures consistent, maintainable, and secure code across all Open Horizon admin utilities.

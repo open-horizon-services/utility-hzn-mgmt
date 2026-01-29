@@ -1,131 +1,125 @@
-# Scratchpad - can-i-list-users.sh
+# Scratchpad - hzn-utils Project
 
-## Background and Motivation
+## Current Project Status
 
-The user wants a new script `can-i-list-users.sh` that serves two purposes:
+The hzn-utils project is a well-structured collection of bash scripts for managing Open Horizon instances. Recent improvements include:
 
-1. **Predictive Check**: Determine whether the authenticated user *should* be able to list users based on their known permissions (admin status, hubAdmin status)
-2. **Actual Verification**: Confirm with an actual API call whether the user *can* list users
+- ✅ **Error Handling Enhancement** - All scripts now use `set -euo pipefail` and trap handlers
+- ✅ **Testing Infrastructure** - Complete test suite with bats-core, unit tests, integration tests, and CI/CD
+- ✅ **Documentation Cleanup** - Removed redundant files, created ROADMAP.md
 
-This is useful for:
-- Debugging permission issues before running other scripts
-- Understanding why a user might not have access
-- Providing clear feedback about expected vs actual permissions
+## Active Roadmap Priorities
 
-## Key Challenges and Analysis
+See [ROADMAP.md](../ROADMAP.md) for complete details.
 
-### Challenge 1: Understanding Open Horizon Permission Model
+### High Priority
+1. **Create shared library** (Item #1)
+   - Reduce code duplication across scripts
+   - Centralize common functions (env file selection, credential parsing, print functions)
+   - Target: `lib/common.sh` expansion
 
-Based on code analysis, the user API returns these permission-related fields:
-- `admin` (boolean): Organization admin - has full access within the org
-- `hubAdmin` (boolean): Hub-level admin - has elevated cross-org permissions
+### Medium Priority
+2. **Add input validation** (Item #3)
+   - Validate user inputs and API responses
+   - Add validation functions for URLs, org IDs, etc.
 
-**Permission rules for listing users** (need to verify):
-- Org admins (`admin: true`) should be able to list users in their own organization
-- Hub admins (`hubAdmin: true`) should be able to list users in any organization
-- Regular users may only be able to see their own user info (not list all users)
+3. **Security enhancements** (Item #9)
+   - Credential encryption option
+   - Credential expiry warnings
+   - Audit logging for sensitive operations
 
-### Challenge 2: Two-Phase Verification Approach
+4. **Configuration management** (Item #5)
+   - Centralized configuration file support
+   - Default values for timeouts, retry counts, etc.
 
-**Phase 1 - Predictive Check**:
-1. Fetch the current user's info via `/orgs/{org}/users/{username}`
-2. Parse `admin` and `hubAdmin` fields
-3. Determine expected permission based on:
-   - If querying same org as auth org AND user is admin → SHOULD be able
-   - If user is hubAdmin → SHOULD be able (any org)
-   - Otherwise → SHOULD NOT be able
+### Low Priority
+- Logging capability (Item #6)
+- Performance optimization (Item #7)
+- Documentation improvements (Item #8)
+- CI/CD enhancements (Item #10)
+- Additional scripts (Item #11)
+- Code quality tools (Item #12)
 
-**Phase 2 - Actual Verification**:
-1. Attempt to list users via `/orgs/{target_org}/users`
-2. Check HTTP response code:
-   - 200 → CAN list users
-   - 401/403 → CANNOT list users
-3. Compare actual result with predicted result
+## Completed Work Archive
 
-### Challenge 3: Target Organization Handling
+### Issue #5: Add list-user.sh script (COMPLETED)
+**Status:** ✅ Merged
+- **Issue:** https://github.com/joewxboy/hzn-utils/issues/5
+- **PR:** https://github.com/joewxboy/hzn-utils/pull/6
+- **Commit:** `9274d72`
 
-The script should support:
-- Default: Use `HZN_ORG_ID` from credentials (same org)
-- Optional: Specify a different organization to check cross-org permissions
+**Scripts created:**
+- `list-user.sh` - CLI-based (requires Exchange 2.124.0+)
+- `list-a-user.sh` - API-based (works with any Exchange version)
 
-## High-level Task Breakdown
+**Key features:**
+- Display current authenticated user information
+- Show admin privileges (org admin, hub admin)
+- Multiple output modes (simple, verbose, JSON-only)
+- Comprehensive error handling and troubleshooting
 
-### Task 1: Create basic script structure
-- [ ] Create `can-i-list-users.sh` with standard boilerplate
-- [ ] Source `lib/common.sh` for shared functions
-- [ ] Add command-line argument parsing (target org, verbose, json-only, help)
-- [ ] Add .env file selection and credential loading
-- **Success Criteria**: Script runs, loads credentials, displays help with `-h`
+## Git Workflow Pattern
 
-### Task 2: Implement Phase 1 - Predictive Permission Check
-- [ ] Fetch current user info via API (`/orgs/{org}/users/{username}`)
-- [ ] Parse `admin` and `hubAdmin` fields
-- [ ] Implement permission prediction logic:
-  - Same org + admin = SHOULD be able
-  - hubAdmin = SHOULD be able (any org)
-  - Otherwise = SHOULD NOT be able
-- [ ] Display predicted permission with explanation
-- **Success Criteria**: Script correctly predicts permission based on user's admin status
+When performing new work in this repository:
 
-### Task 3: Implement Phase 2 - Actual Permission Verification
-- [ ] Attempt to list users via API (`/orgs/{target_org}/users`)
-- [ ] Capture HTTP status code (200 = success, 401/403 = denied)
-- [ ] Display actual result (CAN or CANNOT)
-- **Success Criteria**: Script correctly reports actual API result
+1. **Check for open issues first** - Ask the user if unsure whether to use an existing issue
+2. **If no open issue exists:**
+   - Open a new issue describing the work
+   - Label it `bug` or `enhancement` depending on the type of work
+   - Create the label if it doesn't exist in the repository
+3. **Remember the issue number** and create a new branch with the pattern `issue-#` (e.g., `issue-3`)
+4. **Before committing changes:**
+   - **Always update `README.md` and `AGENTS.md`** to document any new scripts or features
+5. **When committing changes:**
+   - Use the `-s` sign-off flag
+   - Prefix the commit title with `Issue #: ` (e.g., `Issue #3: Fix false failure report`)
+6. **When opening the PR:**
+   - Use the same `Issue #: ` prefix in the PR title
+   - Link to the issue in the PR description
 
-### Task 4: Compare and Report Results
-- [ ] Compare predicted vs actual results
-- [ ] Display clear summary:
-  - ✓ Expected: YES, Actual: YES → "Permission confirmed"
-  - ✗ Expected: YES, Actual: NO → "Unexpected denial - investigate"
-  - ✓ Expected: NO, Actual: NO → "Permission correctly denied"
-  - ! Expected: NO, Actual: YES → "Unexpected access - review permissions"
-- [ ] Provide troubleshooting tips for mismatches
-- **Success Criteria**: Script provides clear, actionable output
+## Development Notes
 
-### Task 5: Add output modes and polish
-- [ ] Implement `--json` mode for machine-readable output
-- [ ] Implement `--verbose` mode for detailed debugging
-- [ ] Add proper exit codes (0 = can list, 1 = cannot list, 2 = error)
-- [ ] Update AGENTS.md with new script documentation
-- **Success Criteria**: All output modes work, documentation updated
+### Project Structure
+```
+hzn-utils/
+├── lib/common.sh              # Shared library (needs expansion - Item #1)
+├── tests/                     # Test suite (bats-core)
+│   ├── unit/                  # Unit tests
+│   ├── integration/           # Integration tests
+│   └── fixtures/              # Test data
+├── *.sh                       # Utility scripts
+└── *.env                      # Credential files (not in git)
+```
 
-### Task 6: Testing
-- [ ] Test with org admin user (same org) - should succeed
-- [ ] Test with regular user (same org) - should fail
-- [ ] Test with hubAdmin (different org) - should succeed
-- [ ] Test with invalid credentials - should error gracefully
-- **Success Criteria**: All test scenarios produce expected results
+### Key Design Principles
+1. **Three operation modes:**
+   - Default: Interactive exploration with prompts
+   - Verbose: Exhaustive details for troubleshooting
+   - Minimal: Machine-readable JSON for automation
 
-## Project Status Board
+2. **Minimal dependencies:**
+   - Bash 3.2+ compatibility (macOS support)
+   - curl and jq (optional but recommended)
+   - No hzn CLI required for API scripts
 
-- [x] Task 1: Create basic script structure
-- [x] Task 2: Implement Phase 1 - Predictive Permission Check
-- [x] Task 3: Implement Phase 2 - Actual Permission Verification
-- [x] Task 4: Compare and Report Results
-- [x] Task 5: Add output modes and polish
-- [ ] Task 6: User Testing
-- [ ] Task 7: Update AGENTS.md and README.md documentation
-- [ ] Task 8: Commit and create PR
+3. **Security first:**
+   - Never commit `.env` files
+   - Support multiple credential files
+   - Clear error messages for auth failures
 
-## Executor's Feedback or Assistance Requests
+### Testing
+- Run all tests: `./run-tests.sh`
+- Unit tests only: `./run-tests.sh --unit`
+- Integration tests: `./run-tests.sh --integration`
+- Static analysis: `./run-tests.sh --shellcheck`
 
-**Status**: Script `can-i-list-users.sh` is ready for user testing.
+## Next Steps
 
-The script has been created with all planned features:
-- Two-phase verification (predictive + actual)
-- `--json` mode for machine-readable output
-- `--verbose` mode for debugging
-- `-o/--org` option for cross-org permission checking
-- Proper exit codes (0=can, 1=cannot, 2=error)
-- Color-coded output with clear messaging
-- Troubleshooting tips for permission mismatches
+Based on ROADMAP.md priorities, the next major improvement should be:
 
-**Awaiting**: User testing before updating documentation and committing.
+**Item #1: Create shared library** (HIGH PRIORITY)
+- Expand `lib/common.sh` with common functions
+- Reduce code duplication across all scripts
+- Improve maintainability and consistency
 
-## Lessons
-
-- All curl commands in this repo should use `-k` flag for self-signed certificate compatibility
-- Use `# shellcheck disable=SCXXXX` with explanatory comments when intentionally triggering warnings
-- Always create GitHub issue before making changes, use branch naming `issue-#`
-- Commits must use `-s` sign-off flag and message prefix `Issue #: `
+This will significantly reduce maintenance burden and make future improvements easier to implement.
