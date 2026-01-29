@@ -97,7 +97,7 @@ fi
 
 # Make the API call
 # Note: HZN_EXCHANGE_URL should already include the API version (e.g., /v1)
-response=$(curl -sS -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs" 2>&1)
+response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs" 2>&1)
 
 # Extract HTTP status code (last line)
 http_code=$(echo "$response" | tail -n1)
@@ -178,7 +178,7 @@ if [ "$JSON_ONLY" = false ]; then
     # Test access to each organization
     for org in "${org_names[@]}"; do
         # Try to get detailed info for each org
-        org_response=$(curl -sS -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${org}" 2>&1)
+        org_response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${org}" 2>&1)
         org_http_code=$(echo "$org_response" | tail -n1)
         
         if [ "$org_http_code" -eq 200 ]; then

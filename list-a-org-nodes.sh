@@ -95,7 +95,7 @@ fi
 
 # Make the API call to get all nodes in the organization
 # API endpoint: /orgs/{orgid}/nodes
-response=$(curl -sS -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/nodes" 2>&1)
+response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/nodes" 2>&1)
 
 # Extract HTTP status code (last line)
 http_code=$(echo "$response" | tail -n1)

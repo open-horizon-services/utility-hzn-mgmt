@@ -144,7 +144,7 @@ fi
 # Make the API call to get services owned by the user
 # API endpoint: /orgs/{orgid}/services?owner={org/userid}
 # Note: The owner parameter must be in org/user format
-response=$(curl -sS -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/services?owner=${OWNER_ID}" 2>&1)
+response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/services?owner=${OWNER_ID}" 2>&1)
 
 # Extract HTTP status code (last line)
 http_code=$(echo "$response" | tail -n1)
