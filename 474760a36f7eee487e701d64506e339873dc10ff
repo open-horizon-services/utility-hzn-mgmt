@@ -1,0 +1,9 @@
+{"id":"e2d0000f-891a-4daa-aaa5-a15e2514c0a7","ts":"2026-01-29T13:14:54.946Z","path":"/Users/josephapearson/dev/hzn-utils/tests/integration/test_api_scripts.bats","version":"1.0.0","taskID":"38ca660b-aa7f-484f-9dfb-a775487af7cc"}
+{"id":"eebfdd13-4cfb-4256-8bc2-06cc81021359","ts":"2026-01-29T17:00:30.087Z","path":"/Users/josephapearson/dev/hzn-utils/lib/common.sh","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"fa811b7b-6f75-4f79-9ef9-e746593c82f8","ts":"2026-01-29T17:00:43.354Z","path":"/Users/josephapearson/dev/hzn-utils/lib/common.sh","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"128ec731-90c1-4f84-8945-759c844d0c0a","ts":"2026-01-29T17:00:54.062Z","path":"/Users/josephapearson/dev/hzn-utils/lib/common.sh","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"3a9707e3-3025-4e15-86ef-2a85e45ac752","ts":"2026-01-29T17:01:02.546Z","path":"/Users/josephapearson/dev/hzn-utils/can-i-list-users.sh","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"4815677e-8b08-4a31-8cd2-37a246c7edad","ts":"2026-01-29T17:01:53.600Z","path":"/Users/josephapearson/dev/hzn-utils/tests/unit/test_apikey_auth.bats","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"6ab9f8c1-44fc-4679-9c43-9f4f5f6d180a","ts":"2026-01-29T17:02:20.095Z","path":"/Users/josephapearson/dev/hzn-utils/tests/unit/test_apikey_auth.bats","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"504c4027-88ed-4e84-9c22-b051ee6a5268","ts":"2026-01-29T18:04:46.785Z","path":"/Users/josephapearson/dev/hzn-utils/.cursor/refactor-plan.md","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
+{"id":"c7400c34-837c-45ff-b585-de81fed4a231","ts":"2026-01-29T18:06:49.457Z","path":"/Users/josephapearson/dev/hzn-utils/lib/common.sh","version":"1.0.0","taskID":"ba8ca99b-b7d4-4d7a-913a-fb6905ecf8e6"}
