@@ -24,6 +24,7 @@ hzn-utils/
 ├── list-a-orgs.sh             # API-based organization listing
 ├── list-a-users.sh            # API-based user listing
 ├── list-a-user.sh             # API-based current user info
+├── can-i-list-users.sh      # Permission verification script
 ├── list-a-org-nodes.sh        # API-based organization node listing
 ├── list-a-user-nodes.sh       # API-based user node listing
 ├── list-a-user-services.sh    # API-based user service listing
@@ -51,12 +52,13 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`list-a-user-services.sh`** - List services for a specific user using REST API
 - **`list-a-user-deployment.sh`** - List deployment policies for a specific user using REST API
 
+### Permission Scripts
+- **`can-i-list-users.sh`** - Check if user can list users in an organization
+
 ### Testing Scripts
 - **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 - **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
 - **`run-tests.sh`** - Run the complete test suite (unit and integration tests)
-- **`test-credentials.sh`** - Test and validate your Open Horizon credentials
-- **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
 
 ## Quick Start
 
@@ -107,6 +109,11 @@ This repository contains several utility scripts for managing Open Horizon insta
 **List all nodes in organization:**
 ```bash
 ./list-a-org-nodes.sh mycreds.env
+```
+
+**Check user permissions:**
+```bash
+./can-i-list-users.sh
 ```
 
 **Test credentials:**
@@ -389,6 +396,38 @@ Advanced script using REST API directly to list all nodes in an organization.
 - `[Device]` (Blue) - Edge device node
 - `[Cluster]` (Magenta) - Edge cluster node
 
+### can-i-list-users.sh (Permission Verification)
+
+Advanced script to check if the authenticated user can list users in an organization using two-phase verification.
+
+**Usage:**
+```bash
+# Check permission in auth organization
+./can-i-list-users.sh
+
+# Check permission in different organization
+./can-i-list-users.sh -o other-org
+
+# JSON output for automation
+./can-i-list-users.sh --json mycreds.env
+
+# Verbose mode for debugging
+./can-i-list-users.sh --verbose
+```
+
+**Options:**
+- `-o, --org ORG` - Target organization to check (default: auth org)
+- `-v, --verbose` - Show detailed output with API responses
+- `-j, --json` - Output JSON only (for scripting/automation)
+- `-h, --help` - Show help message
+
+**Features:**
+- Two-phase verification (predictive + actual API check)
+- Compares predicted vs actual permissions
+- Detailed troubleshooting for permission mismatches
+- Multiple output modes (human-readable, JSON, verbose)
+- Exit codes: 0 (can list), 1 (cannot list), 2 (error)
+
 ### test-credentials.sh (Credential Testing)
 
 Test and validate Open Horizon credentials from .env files.
@@ -498,6 +537,8 @@ When it is running properly, you should see something like the following:
 Horizon CLI version: 2.31.0-1528
 Horizon Agent version: 2.31.0-1528
 ```
+
+**Note:** Version numbers shown in examples may vary based on your Open Horizon installation.
 
 #### Configured
 

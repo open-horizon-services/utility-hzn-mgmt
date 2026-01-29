@@ -14,6 +14,7 @@ hzn-utils/
 ├── list-a-orgs.sh             # API-based organization listing
 ├── list-a-users.sh            # API-based user listing
 ├── list-a-user.sh             # API-based current user info
+├── can-i-list-users.sh      # Permission verification script
 ├── list-a-org-nodes.sh        # API-based organization node listing
 ├── list-a-user-nodes.sh       # API-based user node listing
 ├── list-a-user-services.sh    # API-based user service listing
@@ -32,6 +33,9 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`list-users.sh`** - Interactive script to list users in an organization
 - **`list-user.sh`** - Display current authenticated user info and validate credentials
 - **`test-credentials.sh`** - Test and validate your Open Horizon credentials
+
+### Permission Scripts
+- **`can-i-list-users.sh`** - Check if user can list users in an organization
 
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
@@ -191,8 +195,6 @@ If it is properly configured and reachable, the response will be similar to the 
 
 Where "examples/joewxboy" is your org ID and user ID, "email" is your email address, and "admin" is true if you are an admin.
 
-### Open Horizon Operations
-
 ## Script Documentation
 
 ### list-orgs.sh (Interactive Organization Listing)
@@ -342,6 +344,38 @@ Test and validate Open Horizon credentials from .env files.
 - ✓ User has permission to list users
 - ✓ Counts users in organization
 
+### can-i-list-users.sh (Permission Verification)
+
+Advanced script to check if the authenticated user can list users in an organization using two-phase verification.
+
+**Usage:**
+```bash
+# Check permission in auth organization
+./can-i-list-users.sh
+
+# Check permission in different organization
+./can-i-list-users.sh -o other-org
+
+# JSON output for automation
+./can-i-list-users.sh --json mycreds.env
+
+# Verbose mode for debugging
+./can-i-list-users.sh --verbose
+```
+
+**Options:**
+- `-o, --org ORG` - Target organization to check (default: auth org)
+- `-v, --verbose` - Show detailed output with API responses
+- `-j, --json` - Output JSON only (for scripting/automation)
+- `-h, --help` - Show help message
+
+**Features:**
+- Two-phase verification (predictive + actual API check)
+- Compares predicted vs actual permissions
+- Detailed troubleshooting for permission mismatches
+- Multiple output modes (human-readable, JSON, verbose)
+- Exit codes: 0 (can list), 1 (cannot list), 2 (error)
+
 ## Environment File Configuration
 
 All scripts use `.env` files for credential management. Create one or more `.env` files with the following format:
@@ -431,359 +465,6 @@ hzn exchange node list
 hzn exchange service list
 ```
 
-## Build, Test, and Lint Commands
-
-### Python Environment Setup
-```bash
-# Create virtual environment
-python3 -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate  # On Unix/macOS
-# or
-venv\Scripts\activate     # On Windows
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install development dependencies
-pip install -r requirements-dev.txt
-```
-
-### Testing
-```bash
-# Run all tests
-python -m pytest
-
-# Run tests with coverage
-python -m pytest --cov=.
-
-# Run a single test file
-python -m pytest tests/test_specific_file.py
-
-# Run a single test function
-python -m pytest tests/test_file.py::TestClass::test_function
-
-# Run tests in verbose mode
-python -m pytest -v
-
-# Run tests with output capturing disabled
-python -m pytest -s
-```
-
-### Linting and Code Quality
-```bash
-# Run flake8 linter
-flake8 .
-
-# Run black code formatter
-black .
-
-# Run isort import sorter
-isort .
-
-# Run mypy type checker
-mypy .
-
-# Run all quality checks together
-pre-commit run --all-files
-```
-
-### Build and Package
-```bash
-# Build distribution packages
-python -m build
-
-# Install in development mode
-pip install -e .
-
-# Create wheel
-python setup.py bdist_wheel
-```
-
-## Code Style Guidelines
-
-### Python Style
-- Follow PEP 8 style guidelines
-- Use Black for code formatting with 88 character line length
-- Use isort for import sorting with 4-space indentation
-- Write docstrings for all public functions, classes, and modules using Google style
-
-### Imports
-```python
-# Standard library imports first
-import os
-import sys
-from pathlib import Path
-
-# Third-party imports second
-import requests
-import click
-
-# Local imports last
-from . import utils
-from .api_client import APIClient
-```
-
-### Naming Conventions
-- **Functions**: `snake_case` (e.g., `get_user_info`, `create_organization`)
-- **Variables**: `snake_case` (e.g., `user_data`, `org_name`)
-- **Constants**: `UPPER_SNAKE_CASE` (e.g., `DEFAULT_TIMEOUT`, `API_BASE_URL`)
-- **Classes**: `PascalCase` (e.g., `OrganizationManager`, `UserAPI`)
-- **Modules**: `snake_case` (e.g., `user_utils.py`, `api_client.py`)
-
-### Type Hints
-```python
-from typing import Dict, List, Optional, Any
-import requests
-
-def get_user(user_id: str) -> Dict[str, Any]:
-    """Get user information by ID."""
-    response = requests.get(f"/users/{user_id}")
-    return response.json()
-
-def list_users(limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """List users with optional limit."""
-    # Implementation here
-    pass
-```
-
-### Error Handling
-```python
-import logging
-from typing import Optional
-
-logger = logging.getLogger(__name__)
-
-def safe_api_call(url: str, timeout: int = 30) -> Optional[dict]:
-    """Make API call with proper error handling."""
-    try:
-        response = requests.get(url, timeout=timeout)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.Timeout:
-        logger.error(f"Timeout calling {url}")
-        return None
-    except requests.exceptions.HTTPError as e:
-        logger.error(f"HTTP error calling {url}: {e}")
-        return None
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request error calling {url}: {e}")
-        return None
-```
-
-### Logging
-```python
-import logging
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-def process_data(data: dict) -> None:
-    """Process data with appropriate logging."""
-    logger.info("Starting data processing")
-    try:
-        # Processing logic
-        logger.debug(f"Processing {len(data)} items")
-        # ... process data ...
-        logger.info("Data processing completed successfully")
-    except Exception as e:
-        logger.error(f"Error processing data: {e}")
-        raise
-```
-
-### Command Line Interfaces
-Use Click for CLI applications:
-```python
-import click
-
-@click.group()
-@click.option('--api-url', default='https://api.example.com', help='API base URL')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
-@click.pass_context
-def cli(ctx, api_url, verbose):
-    """Open Horizon Admin CLI."""
-    ctx.ensure_object(dict)
-    ctx.obj['api_url'] = api_url
-    ctx.obj['verbose'] = verbose
-
-@cli.command()
-@click.argument('org_name')
-@click.pass_context
-def create_org(ctx, org_name):
-    """Create a new organization."""
-    api_url = ctx.obj['api_url']
-    verbose = ctx.obj['verbose']
-
-    if verbose:
-        click.echo(f"Creating organization: {org_name}")
-
-    # Implementation here
-    click.echo(f"Organization '{org_name}' created successfully")
-```
-
-### Configuration Management
-```python
-import os
-from pathlib import Path
-from typing import Dict, Any
-import yaml
-
-class Config:
-    """Configuration management for Open Horizon admin tools."""
-
-    def __init__(self, config_file: Optional[str] = None):
-        self.config_file = config_file or self._default_config_path()
-        self._config = self._load_config()
-
-    def _default_config_path(self) -> str:
-        """Get default configuration file path."""
-        return os.path.expanduser("~/.openhorizon/config.yaml")
-
-    def _load_config(self) -> Dict[str, Any]:
-        """Load configuration from file."""
-        if not Path(self.config_file).exists():
-            return self._default_config()
-
-        with open(self.config_file, 'r') as f:
-            return yaml.safe_load(f) or {}
-
-    def _default_config(self) -> Dict[str, Any]:
-        """Return default configuration."""
-        return {
-            'api_url': 'https://api.openhorizon.io',
-            'timeout': 30,
-            'retries': 3
-        }
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value."""
-        return self._config.get(key, default)
-```
-
-### API Client Pattern
-```python
-from typing import Dict, Any, Optional
-import requests
-from .config import Config
-
-class OpenHorizonAPI:
-    """Open Horizon API client."""
-
-    def __init__(self, config: Optional[Config] = None):
-        self.config = config or Config()
-        self.session = requests.Session()
-        self.session.headers.update({
-            'Authorization': f'Bearer {self.config.get("api_key")}',
-            'Content-Type': 'application/json'
-        })
-
-    def _make_request(self, method: str, endpoint: str, **kwargs) -> dict:
-        """Make HTTP request with error handling."""
-        url = f"{self.config.get('api_url')}{endpoint}"
-        timeout = self.config.get('timeout', 30)
-
-        try:
-            response = self.session.request(method, url, timeout=timeout, **kwargs)
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            raise OpenHorizonAPIError(f"API request failed: {e}")
-
-    def list_organizations(self) -> Dict[str, Any]:
-        """List all organizations."""
-        return self._make_request('GET', '/orgs')
-
-    def create_organization(self, org_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Create a new organization."""
-        return self._make_request('POST', '/orgs', json=org_data)
-
-class OpenHorizonAPIError(Exception):
-    """Open Horizon API error."""
-    pass
-```
-
-### Testing Guidelines
-```python
-import pytest
-from unittest.mock import Mock, patch
-from .api_client import OpenHorizonAPI
-
-class TestOpenHorizonAPI:
-    """Test Open Horizon API client."""
-
-    @pytest.fixture
-    def api_client(self):
-        """Create API client for testing."""
-        config = Mock()
-        config.get.return_value = 'https://api.test.com'
-        return OpenHorizonAPI(config)
-
-    def test_list_organizations(self, api_client):
-        """Test listing organizations."""
-        with patch.object(api_client.session, 'request') as mock_request:
-            mock_response = Mock()
-            mock_response.json.return_value = {'orgs': []}
-            mock_request.return_value = mock_response
-
-            result = api_client.list_organizations()
-            assert result == {'orgs': []}
-            mock_request.assert_called_once()
-
-    def test_create_organization(self, api_client):
-        """Test creating organization."""
-        org_data = {'name': 'test-org', 'description': 'Test organization'}
-
-        with patch.object(api_client.session, 'request') as mock_request:
-            mock_response = Mock()
-            mock_response.json.return_value = {'id': '123', **org_data}
-            mock_request.return_value = mock_response
-
-            result = api_client.create_organization(org_data)
-            assert result['name'] == 'test-org'
-            mock_request.assert_called_with(
-                'POST', 'https://api.test.com/orgs',
-                json=org_data, timeout=30
-            )
-```
-
-### File Structure
-```
-openhorizon-admin/
-├── openhorizon/
-│   ├── __init__.py
-│   ├── api.py              # Main API client
-│   ├── cli.py              # Command line interface
-│   ├── config.py           # Configuration management
-│   └── utils.py            # Utility functions
-├── tests/
-│   ├── __init__.py
-│   ├── test_api.py
-│   └── test_cli.py
-├── requirements.txt
-├── requirements-dev.txt
-├── setup.py
-├── pyproject.toml
-└── README.md
-```
-
-### Security Best Practices
-- Never log sensitive information (API keys, passwords)
-- Use environment variables for secrets
-- Validate all user inputs
-- Use HTTPS for all API calls
-- Implement proper authentication and authorization
-- Handle secrets securely (no hardcoded credentials)
-
-### Git Workflow
-- Use descriptive commit messages
-- Keep commits focused and atomic
-- Use feature branches for new functionality
-- Write meaningful pull request descriptions
-- Run tests and linting before committing
+**Note:** Version numbers shown in examples (e.g., 2.31.0-1528) may vary based on your Open Horizon installation.
 
 This guide ensures consistent, maintainable, and secure code across all Open Horizon admin utilities.
