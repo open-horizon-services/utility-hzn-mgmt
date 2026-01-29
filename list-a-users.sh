@@ -96,7 +96,7 @@ fi
 
 # Make the API call
 # Note: HZN_EXCHANGE_URL should already include the API version (e.g., /v1)
-response=$(curl -sS -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/users" 2>&1)
+response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/users" 2>&1)
 
 # Extract HTTP status code (last line)
 http_code=$(echo "$response" | tail -n1)
