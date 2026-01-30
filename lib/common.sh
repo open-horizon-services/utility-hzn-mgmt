@@ -587,7 +587,7 @@ display_api_request() {
     if [ -n "${BASE_URL:-}" ]; then
         echo -n -e "${GREEN}${BASE_URL}${NC}"
         # Remove base URL from the working URL
-        local path="${url#${BASE_URL}}"
+        local path="${url#"${BASE_URL}"}"
     else
         local path="$url"
     fi
@@ -596,15 +596,15 @@ display_api_request() {
     local remaining="$path"
     while [ -n "$remaining" ]; do
         case "$remaining" in
-            /orgs/${HZN_ORG_ID}*)
+            /orgs/"${HZN_ORG_ID}"*)
                 echo -n "/orgs/"
                 echo -n -e "${YELLOW}${HZN_ORG_ID}${NC}"
-                remaining="${remaining#/orgs/${HZN_ORG_ID}}"
+                remaining="${remaining#/orgs/"${HZN_ORG_ID}"}"
                 ;;
-            /users/${AUTH_USER}*)
+            /users/"${AUTH_USER}"*)
                 echo -n "/users/"
                 echo -n -e "${MAGENTA}${AUTH_USER}${NC}"
-                remaining="${remaining#/users/${AUTH_USER}}"
+                remaining="${remaining#/users/"${AUTH_USER}"}"
                 ;;
             /nodes*)
                 echo -n "/"
@@ -632,7 +632,7 @@ display_api_request() {
                 owner_val="${owner_val%%&*}"
                 owner_val="${owner_val%%\?*}"
                 echo -n -e "${CYAN}${owner_val}${NC}"
-                remaining="${remaining#\?owner=${owner_val}}"
+                remaining="${remaining#\?owner="${owner_val}"}"
                 ;;
             *)
                 # Output one character and continue
