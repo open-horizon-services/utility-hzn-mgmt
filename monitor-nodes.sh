@@ -41,6 +41,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v|--verbose)
             VERBOSE=true
+            export VERBOSE
             shift
             ;;
         -h|--help)
@@ -95,6 +96,7 @@ fi
 
 # Get script directory and source common library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
 
 # Terminal control functions
@@ -182,15 +184,17 @@ timestamp_to_seconds() {
 # Function to format time difference as human-readable
 format_time_ago() {
     local timestamp="$1"
-    local now=$(date +%s)
-    local then=$(timestamp_to_seconds "$timestamp")
+    local now
+    local then_ts
+    now=$(date +%s)
+    then_ts=$(timestamp_to_seconds "$timestamp")
     
-    if [ "$then" -eq 0 ]; then
+    if [ "$then_ts" -eq 0 ]; then
         echo "unknown"
         return
     fi
     
-    local diff=$((now - then))
+    local diff=$((now - then_ts))
     
     if [ $diff -lt 0 ]; then
         echo "future"
@@ -208,15 +212,17 @@ format_time_ago() {
 # Function to get color code based on heartbeat age
 get_heartbeat_color() {
     local timestamp="$1"
-    local now=$(date +%s)
-    local then=$(timestamp_to_seconds "$timestamp")
+    local now
+    local then_ts
+    now=$(date +%s)
+    then_ts=$(timestamp_to_seconds "$timestamp")
     
-    if [ "$NO_COLOR" = true ] || [ "$then" -eq 0 ]; then
+    if [ "$NO_COLOR" = true ] || [ "$then_ts" -eq 0 ]; then
         echo ""
         return
     fi
     
-    local diff=$((now - then))
+    local diff=$((now - then_ts))
     
     if [ $diff -lt 120 ]; then
         # < 2 minutes: Green (active)
@@ -238,8 +244,10 @@ fetch_and_display_nodes() {
         "${BASE_URL}/orgs/${HZN_ORG_ID}/nodes?owner=${OWNER_ID}" 2>&1)
     
     # Extract HTTP status code and body
-    local http_code=$(echo "$response" | tail -n1)
-    local response_body=$(echo "$response" | sed '$d')
+    local http_code
+    local response_body
+    http_code=$(echo "$response" | tail -n1)
+    response_body=$(echo "$response" | sed '$d')
     
     # Check HTTP status code
     if [ "$http_code" -ne 200 ]; then
@@ -286,24 +294,32 @@ fetch_and_display_nodes() {
     
     # Extract node details and sort by heartbeat
     for node in "${node_names[@]}"; do
+        local heartbeat
+        local node_type
+        local arch
+        local pattern
+        local name
+        
         if [ "$JQ_AVAILABLE" = true ]; then
-            local heartbeat=$(echo "$response_body" | jq -r ".nodes[\"$node\"].lastHeartbeat // \"\"" 2>/dev/null)
-            local node_type=$(echo "$response_body" | jq -r ".nodes[\"$node\"].nodeType // \"device\"" 2>/dev/null)
-            local arch=$(echo "$response_body" | jq -r ".nodes[\"$node\"].arch // \"unknown\"" 2>/dev/null)
-            local pattern=$(echo "$response_body" | jq -r ".nodes[\"$node\"].pattern // \"\"" 2>/dev/null)
-            local name=$(echo "$response_body" | jq -r ".nodes[\"$node\"].name // \"\"" 2>/dev/null)
+            heartbeat=$(echo "$response_body" | jq -r ".nodes[\"$node\"].lastHeartbeat // \"\"" 2>/dev/null)
+            node_type=$(echo "$response_body" | jq -r ".nodes[\"$node\"].nodeType // \"device\"" 2>/dev/null)
+            arch=$(echo "$response_body" | jq -r ".nodes[\"$node\"].arch // \"unknown\"" 2>/dev/null)
+            pattern=$(echo "$response_body" | jq -r ".nodes[\"$node\"].pattern // \"\"" 2>/dev/null)
+            name=$(echo "$response_body" | jq -r ".nodes[\"$node\"].name // \"\"" 2>/dev/null)
         else
-            local heartbeat=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('lastHeartbeat', ''))" 2>/dev/null)
-            local node_type=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('nodeType', 'device'))" 2>/dev/null)
-            local arch=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('arch', 'unknown'))" 2>/dev/null)
-            local pattern=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('pattern', ''))" 2>/dev/null)
-            local name=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('name', ''))" 2>/dev/null)
+            heartbeat=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('lastHeartbeat', ''))" 2>/dev/null)
+            node_type=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('nodeType', 'device'))" 2>/dev/null)
+            arch=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('arch', 'unknown'))" 2>/dev/null)
+            pattern=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('pattern', ''))" 2>/dev/null)
+            name=$(echo "$response_body" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('nodes', {}).get('$node', {}).get('name', ''))" 2>/dev/null)
         fi
         
         # Calculate heartbeat age for sorting and categorization
-        local now=$(date +%s)
-        local then=$(timestamp_to_seconds "$heartbeat")
-        local age=$((now - then))
+        local now
+        local then_ts
+        now=$(date +%s)
+        then_ts=$(timestamp_to_seconds "$heartbeat")
+        local age=$((now - then_ts))
         
         # Categorize by age
         if [ $age -lt 120 ]; then
@@ -315,12 +331,14 @@ fetch_and_display_nodes() {
         fi
         
         # Store node data with heartbeat timestamp for sorting
-        node_data+=("${then}|${name}|${node_type}|${arch}|${pattern}|${heartbeat}")
+        node_data+=("${then_ts}|${name}|${node_type}|${arch}|${pattern}|${heartbeat}")
     done
     
     # Sort nodes by heartbeat (most recent first)
-    IFS=$'\n' sorted_nodes=($(sort -t'|' -k1 -rn <<<"${node_data[*]}"))
-    unset IFS
+    local sorted_nodes=()
+    while IFS= read -r line; do
+        sorted_nodes+=("$line")
+    done < <(printf '%s\n' "${node_data[@]}" | sort -t'|' -k1 -rn)
     
     # Display header
     clear_screen
@@ -331,7 +349,7 @@ fetch_and_display_nodes() {
     echo "Last Updated: $(date '+%Y-%m-%d %H:%M:%S')"
     echo ""
     
-    if [ $total_nodes -eq 0 ]; then
+    if [ "$total_nodes" -eq 0 ]; then
         echo "No nodes found for user '$USER_ID'"
     else
         # Display table header
@@ -343,13 +361,16 @@ fetch_and_display_nodes() {
         for node_line in "${sorted_nodes[@]}"; do
             IFS='|' read -r timestamp name node_type arch pattern heartbeat <<< "$node_line"
             
-            local time_ago=$(format_time_ago "$heartbeat")
-            local color=$(get_heartbeat_color "$heartbeat")
+            local time_ago
+            local color
             local status_color=""
             local status_text=""
+            time_ago=$(format_time_ago "$heartbeat")
+            color=$(get_heartbeat_color "$heartbeat")
             
             # Determine status based on age
-            local now=$(date +%s)
+            local now
+            now=$(date +%s)
             local age=$((now - timestamp))
             
             if [ $age -lt 120 ]; then
@@ -396,7 +417,7 @@ else
     # Monitoring loop
     while true; do
         # Wait for refresh interval or user input
-        if read -t "$REFRESH_INTERVAL" -n 1 key 2>/dev/null; then
+        if read -r -t "$REFRESH_INTERVAL" -n 1 key 2>/dev/null; then
             case "$key" in
                 q|Q)
                     break
