@@ -2,16 +2,6 @@
 
 The purpose of this repo is to collect scripts that will automate creation, listing, and removing of organizations, users, services, and nodes in an Open Horizon instance.
 
-## Design Goals and Philosophy
-
-The scripts in this repo are intended to be used by an Open Horizon administrator to manage their Open Horizon instance.  They should be able to operate in three modes:
-
-1. Default, interactive exploration mode where they provide most of the information a person is likely to need, prompt for missing information, and link to more details, if desired.
-2. Verbose mode where all of the details are listed exhaustively, where a person is trying to find specific details.
-3. Minimal, programmatic mode where all of the arguments can be passed to the script and the response is machine-readable in JSON format.  This can be integrated into tools, tests, and automation.
-
-The scripts are designed to be simple, easy to use, and require minimal setup.  They assume bash 3.x or earlier, jq, and curl.  They do not need to be run on the same machine as the Open Horizon instance.
-
 ## Project Structure
 
 ```
@@ -24,11 +14,15 @@ hzn-utils/
 ├── list-a-orgs.sh             # API-based organization listing
 ├── list-a-users.sh            # API-based user listing
 ├── list-a-user.sh             # API-based current user info
-├── can-i-list-users.sh      # Permission verification script
+├── can-i-list-users.sh        # Permission verification script
+├── can-i-list-orgs.sh         # Organization permission verification
+├── can-i-list-services.sh     # Service permission verification
+├── can-i-do-anything.sh       # Comprehensive permission checker
 ├── list-a-org-nodes.sh        # API-based organization node listing
 ├── list-a-user-nodes.sh       # API-based user node listing
 ├── list-a-user-services.sh    # API-based user service listing
 ├── list-a-user-deployment.sh  # API-based user deployment policy listing
+├── monitor-nodes.sh           # Real-time node monitoring utility
 ├── test-credentials.sh        # Credential validation tool
 ├── test-hzn.sh                # CLI installation test
 └── *.env                      # Credential files (not in git)
@@ -42,91 +36,231 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`list-orgs.sh`** - Interactive script to list organizations and optionally view users
 - **`list-users.sh`** - Interactive script to list users in an organization
 - **`list-user.sh`** - Display current authenticated user info and validate credentials
+- **`test-credentials.sh`** - Test and validate your Open Horizon credentials
+
+### Permission Scripts
+- **`can-i-list-users.sh`** - Check if user can list users in an organization
+- **`can-i-list-orgs.sh`** - Check if user can list organizations
+- **`can-i-list-services.sh`** - Check if user can list services at different levels
+- **`can-i-do-anything.sh`** - Comprehensive checker showing all runnable scripts
 
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
 - **`list-a-users.sh`** - List users using REST API with multiple output modes
 - **`list-a-user.sh`** - Display current authenticated user info using REST API
-- **`list-a-org-nodes.sh`** - List all nodes in an organization using REST API
+- **`list-a-org-nodes.sh`** - List nodes in an organization using REST API
 - **`list-a-user-nodes.sh`** - List nodes for a specific user using REST API
 - **`list-a-user-services.sh`** - List services for a specific user using REST API
 - **`list-a-user-deployment.sh`** - List deployment policies for a specific user using REST API
-
-### Permission Scripts
-- **`can-i-list-users.sh`** - Check if user can list users in an organization
-- **`can-i-list-orgs.sh`** - Check if user can list organizations
-- **`can-i-list-services.sh`** - Check if user can list services at different access levels
 
 ### Monitoring Scripts
 - **`monitor-nodes.sh`** - Real-time node monitoring utility (like 'top' for nodes)
 
 ### Testing Scripts
-- **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 - **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
-- **`run-tests.sh`** - Run the complete test suite (unit and integration tests)
 
-## Quick Start
+### Shared Library
+- **`lib/common.sh`** - Common functions used across all scripts including:
+  - Color-coded output functions
+  - Credential management and validation
+  - Environment file selection
+  - Tool availability checks (curl, jq, hzn)
+  - Error handling and cleanup
+  - API key authentication support with automatic username resolution
 
-### Environment Setup
+## Shell Compatibility Notes
 
-1. Create one or more `.env` files with your credentials:
-   ```bash
-   cp example.env production.env
-   # Edit production.env with your actual credentials
-   ```
+### Bash Version Requirements
+These scripts are designed to work with Bash 3.2+ for maximum compatibility across different systems (including older macOS versions).
 
-2. Your `.env` file should contain:
-   ```bash
-   HZN_EXCHANGE_URL=https://open-horizon.lfedge.iol.unh.edu:3090/v1/
-   HZN_ORG_ID=myorg
-   HZN_EXCHANGE_USER_AUTH=myuser:mypassword
-   ```
+**Known Compatibility Issues:**
+- **`mapfile` / `readarray`**: Not available in Bash 3.x (macOS default). Scripts use `while read` loops instead for array population.
+- **Process substitution** (`< <(command)`): Requires Bash 4.0+ but is used sparingly with fallbacks where needed.
 
-3. You can create multiple `.env` files for different environments:
-   - `production.env`
-   - `staging.env`
-   - `development.env`
-   - `mycreds.env`
-   - etc.
-
-### Basic Usage Examples
-
-**List organizations (interactive):**
+**Portable Array Population Pattern:**
 ```bash
-./list-orgs.sh
+# Instead of: mapfile -t array < <(command)
+# Use this portable approach:
+array=()
+while IFS= read -r item; do
+    [ -n "$item" ] && array+=("$item")
+done < <(command)
 ```
 
-**List users (interactive):**
+This pattern is used throughout the scripts to ensure compatibility with older Bash versions while maintaining functionality.
+
+## Usage
+
+### Is the CLI installed, configured, and running?
+
+#### Installed and location
+`which hzn` should tell you if the binary is installed and available.
+
+#### Running
+`hzn version` should tell you if the CLI is running.  You should receive values for both the CLI and the agent.  If the agent is not running, you will receive an error message like below:
+
 ```bash
-./list-users.sh
+$ hzn version
+Horizon CLI version: 2.31.0-1528
+Horizon Agent version: failed to get.
 ```
 
-**List organizations (API, JSON output):**
+On macOS, you can try running the agent with IF docker desktop or podman desktop is installed and running:
+
 ```bash
-./list-a-orgs.sh --json mycreds.env
+horizon-container start
 ```
 
-**List nodes for a user:**
+If that throws an error message like the following, then start Docker Desktop or Podman Desktop:
+
 ```bash
-./list-a-user-nodes.sh myuser mycreds.env
+Starting the Horizon agent container openhorizon/amd64_anax:2.31.0-1528...
+failed to connect to the docker API at unix:///Users/josephpearson/.docker/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /Users/josephpearson/.docker/run/docker.sock: connect: no such file or directory
+Error: exit code 1 from: docker run
 ```
 
-**List all nodes in organization:**
+IF running `horizon-contain start` results in an error message like the following, then you need to stop and restart the container:
+
 ```bash
-./list-a-org-nodes.sh mycreds.env
+Starting the Horizon agent container openhorizon/amd64_anax:2.31.0-1528...
+docker: Error response from daemon: Conflict. The container name "/horizon1" is already in use by container "1ff9c8e008e5c9900108db92570b564efac8b2d72f08d30bf32de3502d8c7c72". You have to remove (or rename) that container to be able to reuse that name.
+
+Run 'docker run --help' for more information
+Error: exit code 125 from: docker run
 ```
 
-**Check user permissions:**
+Then `horizon-container stop` and `horizon-container start` should resolve the issue.  NOTE: Stopping the container may require you to enter your password.
+
+When it is running properly, you should see something like the following:
+
 ```bash
-./can-i-list-users.sh
+% hzn version
+Horizon CLI version: 2.31.0-1528
+Horizon Agent version: 2.31.0-1528
 ```
 
-**Test credentials:**
+#### Configured
+
+##### Node configured?
+
 ```bash
-./test-credentials.sh
+hzn node ls
 ```
+
+Should return something like the following:
+
+```bash
+% hzn node ls
+{
+  "id": "joeinteel",
+  "organization": null,
+  "pattern": null,
+  "name": null,
+  "nodeType": null,
+  "clusterNamespace": null,
+  "token_last_valid_time": "",
+  "token_valid": null,
+  "ha_group": null,
+  "configstate": {
+    "state": "unconfigured",
+    "last_update_time": ""
+  },
+  "configuration": {
+    "exchange_api": "http://open-horizon.lfedge.iol.unh.edu:3090/v1/",
+    "exchange_version": "2.110.4",
+    "required_minimum_exchange_version": "2.90.1",
+    "preferred_exchange_version": "2.110.1",
+    "mms_api": "http://open-horizon.lfedge.iol.unh.edu:9443",
+    "architecture": "amd64",
+    "horizon_version": "2.31.0-1528"
+  }
+}
+```
+
+##### Exchange reachable and user authenticated?
+
+```bash
+hzn ex user ls
+```
+
+If you see something like the following, you do not have the proper environment variables set:
+
+```bash
+Error: organization ID must be specified with either the -o flag or HZN_ORG_ID
+```
+
+If it is properly configured and reachable, the response will be similar to the following:
+
+```bash
+{
+  "examples/joewxboy": {
+    "password": "********",
+    "email": "joe.pearson@us.ibm.com",
+    "admin": true,
+    "hubAdmin": false,
+    "lastUpdated": "2025-04-25T18:26:34.773362847Z[UTC]",
+    "updatedBy": "root/root"
+  }
+}
+```
+
+Where "examples/joewxboy" is your org ID and user ID, "email" is your email address, and "admin" is true if you are an admin.
 
 ## Script Documentation
+
+### can-i-do-anything.sh (Comprehensive Permission Checker)
+
+Determines which Open Horizon admin utility scripts you can run based on your authenticated role and permissions.
+
+**Usage:**
+```bash
+# Interactive mode (default)
+./can-i-do-anything.sh
+
+# Use specific .env file
+./can-i-do-anything.sh mycreds.env
+
+# JSON output for automation
+./can-i-do-anything.sh --json mycreds.env
+
+# Verbose mode with detailed explanations
+./can-i-do-anything.sh --verbose
+```
+
+**Options:**
+- `-v, --verbose` - Show detailed output with permission explanations
+- `-j, --json` - Output JSON only (for scripting/automation)
+- `-h, --help` - Show help message
+
+**Features:**
+- Analyzes user role and permissions
+- Tests access to organizations, users, and services
+- Groups scripts by category (org, user, node, service, deployment, test)
+- Shows which scripts are runnable based on current permissions
+- Three output modes for different use cases
+
+**Output Modes:**
+1. **Interactive** (Default): Numbered list grouped by category with brief descriptions
+2. **JSON**: Machine-readable structured output for automation
+3. **Verbose**: Detailed descriptions with permission requirements and explanations
+
+**Example Output (Interactive):**
+```
+Available Scripts for User: myuser (Organization: myorg)
+
+Your Role: Org Admin
+
+Organization Management (3 scripts)
+  1. list-orgs.sh              - List organizations interactively
+  2. list-a-orgs.sh            - List organizations via API
+  3. can-i-list-orgs.sh        - Check organization listing permissions
+
+User Management (5 scripts)
+  4. list-users.sh             - List users in organization
+  ...
+
+Total: 16 scripts available
+```
 
 ### list-orgs.sh (Interactive Organization Listing)
 
@@ -174,69 +308,6 @@ Interactive script to list users in a specific organization. Can be called stand
 - Shows admin and hub admin status
 - Can query different organization than auth organization
 - Reuses credentials when called from list-orgs.sh
-
-### list-user.sh (Current User Info - CLI)
-
-Display information about the currently authenticated user. This validates credentials and shows user details including admin privileges.
-
-**Usage:**
-```bash
-# Interactive mode (prompts for .env file)
-./list-user.sh
-
-# Use specific .env file
-./list-user.sh mycreds.env
-```
-
-**Features:**
-- Validates user credentials against the Exchange
-- Displays user ID, email, admin status, hub admin status
-- Shows last updated timestamp and who updated the user
-- Color-coded admin status indicators
-- Detailed error messages and troubleshooting tips
-
-**Note:** Requires Exchange version 2.124.0 or above due to hzn CLI requirements. For older Exchange servers, use `list-a-user.sh` instead.
-
-### list-a-user.sh (Current User Info - API)
-
-Display information about the currently authenticated user using REST API directly. This validates credentials and shows user details including admin privileges.
-
-**Usage:**
-```bash
-# Interactive mode (prompts for .env file)
-./list-a-user.sh
-
-# Use specific .env file
-./list-a-user.sh mycreds.env
-
-# JSON output only (for piping/automation)
-./list-a-user.sh --json mycreds.env
-
-# Verbose mode with full JSON details
-./list-a-user.sh --verbose
-```
-
-**Options:**
-- `-v, --verbose` - Show detailed JSON response
-- `-j, --json` - Output raw JSON only (no colors, headers, or messages)
-- `-h, --help` - Show help message
-
-**Features:**
-- Direct REST API calls using curl (works with any Exchange version)
-- Multiple output modes (simple, verbose, JSON-only)
-- Displays user ID, email, admin status, hub admin status
-- Shows last updated timestamp and who updated the user
-- Color-coded admin status indicators
-- Supports self-signed certificates (common in Open Horizon deployments)
-- Detailed error messages and troubleshooting tips
-
-**User Information Displayed:**
-- User ID (org/username)
-- Email address
-- Org Admin status (green "Yes" if admin)
-- Hub Admin status (magenta "Yes" if hub admin)
-- Last Updated timestamp
-- Updated By (who last modified the user)
 
 ### list-a-orgs.sh (API-Based Organization Listing)
 
@@ -313,219 +384,72 @@ Advanced script using REST API directly with multiple output modes for automatio
 - `[Hub Admin]` (Magenta) - Hub-level administrative access
 - (no badge) - Regular user with standard permissions
 
-### list-a-user-nodes.sh (API-Based User Node Listing)
+### test-credentials.sh (Credential Testing)
 
-Advanced script using REST API directly to list nodes registered by a specific user. If no user ID is provided, it defaults to the authenticated user from the credentials.
-
-**Usage:**
-```bash
-# Query nodes for authenticated user (default)
-./list-a-user-nodes.sh
-
-# Specify different user ID
-./list-a-user-nodes.sh myuser
-
-# Use specific user and .env file
-./list-a-user-nodes.sh myuser mycreds.env
-
-# JSON output for authenticated user
-./list-a-user-nodes.sh --json mycreds.env
-
-# JSON output for specific user
-./list-a-user-nodes.sh --json myuser mycreds.env
-
-# Verbose mode with full JSON details
-./list-a-user-nodes.sh --verbose myuser
-```
-
-**Options:**
-- `-v, --verbose` - Show detailed JSON response with headers
-- `-j, --json` - Output raw JSON only (no colors, headers, or messages)
-- `-h, --help` - Show help message
-
-**Features:**
-- Direct REST API calls using curl
-- Multiple output modes (simple, verbose, JSON-only)
-- Node status analysis (configured, unconfigured)
-- Node type display (device, cluster)
-- Pattern information
-- Supports both interactive and non-interactive modes
-- Optional jq support for better JSON parsing
-
-**Node Status Legend:**
-- `[Configured]` (Green) - Node is configured and registered
-- `[Unconfigured]` (Yellow) - Node is registered but not configured
-- `[Unknown]` (Red) - Node status is unknown
-
-### list-a-org-nodes.sh (API-Based Organization Node Listing)
-
-Advanced script using REST API directly to list all nodes in an organization.
+Test and validate Open Horizon credentials from .env files.
 
 **Usage:**
 ```bash
-# Interactive mode
-./list-a-org-nodes.sh
-
-# Use specific .env file
-./list-a-org-nodes.sh mycreds.env
-
-# JSON output only (for piping/automation)
-./list-a-org-nodes.sh --json mycreds.env
-
-# Verbose mode with full JSON details
-./list-a-org-nodes.sh --verbose
+./test-credentials.sh
 ```
-
-**Options:**
-- `-v, --verbose` - Show detailed JSON response with headers
-- `-j, --json` - Output raw JSON only (no colors, headers, or messages)
-- `-h, --help` - Show help message
 
 **Features:**
-- Direct REST API calls using curl
-- Multiple output modes (simple, verbose, JSON-only)
-- Node status analysis (configured, unconfigured)
-- Node type analysis (device, cluster)
-- Owner tracking for each node
-- Pattern information
-- Summary statistics (total nodes, by status, by type, unique owners)
-- Supports both interactive and non-interactive modes
-- Optional jq support for better JSON parsing
+- Interactive .env file selection
+- Validates all required environment variables
+- Tests Exchange connectivity
+- Verifies user authentication
+- Checks user permissions
+- Displays credential summary
+- Provides detailed troubleshooting tips on failure
 
-**Node Status Legend:**
-- `[Configured]` (Green) - Node is configured and registered
-- `[Unconfigured]` (Yellow) - Node is registered but not configured
-- `[Unknown]` (Red) - Node status is unknown
-
-**Node Type Legend:**
-- `[Device]` (Blue) - Edge device node
-- `[Cluster]` (Magenta) - Edge cluster node
-
-### monitor-nodes.sh (Real-Time Node Monitoring)
-
-Real-time monitoring utility for Open Horizon nodes, similar to the `top` command. Displays a continuously updating table of nodes sorted by most recent heartbeat activity.
-
-**Usage:**
-```bash
-# Monitor with default settings (10s refresh)
-./monitor-nodes.sh
-
-# Custom refresh interval (5 seconds)
-./monitor-nodes.sh -i 5
-
-# Monitor specific user's nodes
-./monitor-nodes.sh -u myuser
-
-# Run once and exit (no continuous monitoring)
-./monitor-nodes.sh --once
-
-# JSON output for automation
-./monitor-nodes.sh --json mycreds.env
-
-# Use specific .env file
-./monitor-nodes.sh mycreds.env
-```
-
-**Options:**
-- `-i, --interval SECONDS` - Refresh interval in seconds (default: 10)
-- `-u, --user USER_ID` - Monitor nodes for specific user (default: authenticated user)
-- `-n, --no-color` - Disable color output
-- `-1, --once` - Run once and exit (no continuous monitoring)
-- `-j, --json` - Output JSON format (implies --once)
-- `-v, --verbose` - Show detailed information
-- `-h, --help` - Show help message
-
-**Features:**
-- Real-time monitoring with configurable refresh interval
-- Nodes sorted by most recent heartbeat (freshest at top)
-- Human-readable time format (e.g., "5s ago", "2m ago", "3h ago")
-- Color-coded status based on heartbeat age:
-  - 🟢 Green: Active (< 2 minutes)
-  - 🟡 Yellow: Stale (2-10 minutes)
-  - 🔴 Red: Inactive (> 10 minutes)
-- Summary statistics (total, active, stale, inactive nodes)
-- Interactive controls (q to quit, r to refresh)
-- Multiple output modes (interactive, once, JSON)
-- Terminal-friendly display with automatic cleanup
-
-**Display Format:**
-```
-═══════════════════════════════════════════════════════════════════════════════
-Open Horizon Node Monitor - User: username, Org: orgname
-═══════════════════════════════════════════════════════════════════════════════
-Refresh: 10s | Total: 5 | Active: 2 | Stale: 1 | Inactive: 2
-Last Updated: 2026-01-30 15:45:23
-
-NODE ID                   TYPE         ARCH       STATUS   LAST HEARTBEAT       PATTERN
-───────────────────────────────────────────────────────────────────────────────
-node-prod-01              device       amd64      Active   5s ago               ibm.helloworld
-node-prod-02              device       arm64      Active   12s ago              ibm.helloworld
-node-staging-01           cluster      amd64      Stale    5m ago               ibm.cpu2evtstreams
-node-dev-01               device       amd64      Inactive 2h ago               -
-node-test-01              device       arm64      Inactive 5d ago               -
-
-Press 'q' to quit, 'r' to refresh now
-```
-
-**Interactive Controls:**
-- `q` or `Ctrl+C` - Exit the monitor
-- `r` - Force immediate refresh (doesn't wait for interval)
-
-**Use Cases:**
-- Monitor node health and activity in real-time
-- Quickly identify inactive or stale nodes
-- Track node heartbeat patterns
-- Verify nodes are checking in regularly
-- Troubleshoot node connectivity issues
-- Generate node status reports (using --once or --json)
-
-**Node Status Determination:**
-Since the Exchange API doesn't provide a `configstate` field, status is determined by heartbeat age:
-- **Active**: Last heartbeat within 2 minutes
-- **Stale**: Last heartbeat between 2-10 minutes
-- **Inactive**: Last heartbeat older than 10 minutes
-
-**Technical Details:**
-- Uses `lastHeartbeat` field from Exchange API
-- Timestamps in ISO 8601 UTC format
-- Sorts nodes by heartbeat timestamp (most recent first)
-- Terminal control for cursor hiding/showing
-- Graceful cleanup on exit or interrupt
+**Validation Checks:**
+- ✓ Exchange URL is reachable
+- ✓ Organization exists
+- ✓ User is authenticated
+- ✓ User has permission to list users
+- ✓ Counts users in organization
 
 ### can-i-list-orgs.sh (Organization Permission Verification)
 
-Advanced script to check if the authenticated user can list organizations using three-level verification (general to specific).
+Advanced script to check if the authenticated user can list organizations using two-phase verification.
 
-**Usage:**
-```bash
-# Check permission interactively
-./can-i-list-orgs.sh
+**Technical Implementation:**
 
-# JSON output for automation
-./can-i-list-orgs.sh --json mycreds.env
+**Two-Phase Verification Process:**
+1. **Phase 1 - Predictive Check**: Fetches user info from `/orgs/{HZN_ORG_ID}/users/{AUTH_USER}` and analyzes `admin` and `hubAdmin` status to predict permission
+2. **Phase 2 - Actual Verification**: Calls `GET /orgs` API endpoint to verify actual permission
+3. **Phase 3 - Comparison**: Compares predicted vs actual results and reports status (CONFIRMED or MISMATCH)
 
-# Verbose mode for debugging
-./can-i-list-orgs.sh --verbose
-```
+**Permission Logic:**
+- **Hub Admin** (`hubAdmin: true`): Can list ALL organizations (predicted: YES, scope: ALL)
+- **Org Admin** (`admin: true`, `hubAdmin: false`): Can only list their own organization (predicted: YES, scope: OWN)
+- **Regular User** (`admin: false`, `hubAdmin: false`): Cannot list organizations (predicted: NO, scope: NONE)
 
-**Options:**
-- `-v, --verbose` - Show detailed output with API responses
-- `-j, --json` - Output JSON only (for scripting/automation)
-- `-h, --help` - Show help message
+**Key Differences from can-i-list-users.sh:**
+1. **No target organization parameter**: Listing orgs is a global operation, not org-specific
+2. **Different API endpoint**: Uses `/orgs` instead of `/orgs/{org}/users`
+3. **Simpler permission model**: Only hubAdmin can list ALL orgs; org admins see only their own
+4. **Organization count tracking**: Counts and displays number of organizations returned
+5. **Scope indication**: Shows whether user can see ALL orgs or just OWN org
 
-**Three-Level Testing (General → Specific):**
-1. **Level 1**: List ALL organizations - Hub Admin (all) or Org Admin (own)
-2. **Level 2**: View auth organization details - Organization member
-3. **Level 3**: View user's role in organization - Any authenticated user
+**Output Modes:**
+- **Default**: Human-readable with color-coded status indicators
+- **Verbose** (`--verbose`): Includes full API responses with JSON formatting
+- **JSON** (`--json`): Machine-readable output for automation
 
-**Features:**
-- Progressive permission testing from broadest to narrowest scope
-- Shows exactly what the user can and cannot access
-- Displays scope of access (ALL orgs vs OWN org only)
-- Shows user's role in the organization
-- Multiple output modes (human-readable, JSON, verbose)
-- API key authentication support with automatic username resolution
-- Exit codes: 0 (can list orgs), 1 (cannot list), 2 (error)
+**Exit Codes:**
+- `0`: User CAN list organizations (actual permission granted)
+- `1`: User CANNOT list organizations (actual permission denied)
+- `2`: Error (invalid arguments, API error, authentication failure)
+
+**API Key Authentication:**
+Like `can-i-list-users.sh`, this script supports API key authentication and automatically resolves the username before performing permission checks.
+
+**Integration Points:**
+- Uses `lib/common.sh` for credential management and output formatting
+- Shares credential loading logic with other API-based scripts
+- Compatible with multiple `.env` file support
+- Supports API key authentication with automatic username resolution
 
 ### can-i-list-users.sh (User Permission Verification)
 
@@ -552,128 +476,100 @@ Advanced script to check if the authenticated user can list users using three-le
 - `-j, --json` - Output JSON only (for scripting/automation)
 - `-h, --help` - Show help message
 
-**Three-Level Testing (General → Specific):**
-1. **Level 1**: List ALL users (across all organizations) - Hub Admin only
-2. **Level 2**: List users in target organization - Org Admin or Hub Admin
-3. **Level 3**: View own user information - Any authenticated user
+**Three-Level Verification (General → Specific):**
+
+**Level 1: List ALL Users (across all organizations)**
+- **Endpoint**: Tests access to different organization's users
+- **Permission Required**: Hub Admin only
+- **Purpose**: Verify if user can access users across ALL organizations
+
+**Level 2: List Users in Target Organization**
+- **Endpoint**: `GET /orgs/{target_org}/users`
+- **Permission Required**: Org Admin (in target org) or Hub Admin
+- **Purpose**: Verify if user can list users in the specified organization
+
+**Level 3: View Own User Information**
+- **Endpoint**: `GET /orgs/{auth_org}/users/{auth_user}`
+- **Permission Required**: Any authenticated user (self-access)
+- **Purpose**: Verify user can at least access their own information
 
 **Features:**
 - Progressive permission testing from broadest to narrowest scope
 - Shows exactly what the user can and cannot access
 - Detailed troubleshooting showing where permissions break down
 - Multiple output modes (human-readable, JSON, verbose)
-- API key authentication support with automatic username resolution
+- **API key authentication support** - Automatically resolves username from API key
+- Exit codes: 0 (can list org users), 1 (cannot list), 2 (error)
+
+**API Key Authentication:**
+When using API key authentication (`HZN_EXCHANGE_USER_AUTH=apikey:<key>`), the script automatically:
+1. Detects the API key format
+2. Queries `/orgs/{org}/users/apikey` to resolve the actual username
+3. Uses the resolved username for permission checks
 
 ### can-i-list-services.sh (Service Permission Verification)
 
 Advanced script to check if the authenticated user can list services at different access levels using three-level verification (general to specific).
 
-**Usage:**
-```bash
-# Check permission in auth organization
-./can-i-list-services.sh
+**Technical Implementation:**
 
-# Check permission in different organization
-./can-i-list-services.sh -o other-org
+**Three-Level Verification Process:**
+1. **Level 1 - IBM Public Services**: Tests `GET /orgs/{ibm_org}/services` to verify access to IBM's public service catalog
+2. **Level 2 - Org Public Services**: Tests `GET /orgs/{target_org}/services` to verify access to organization's public services
+3. **Level 3 - Own Services**: Tests `GET /orgs/{auth_org}/services?owner={auth_org}/{auth_user}` to verify access to user's own services
 
-# Use custom IBM organization name
-./can-i-list-services.sh --ibm-org myibm
+**Service Visibility Model:**
+- **Public Services**: Visible to all authenticated users across all organizations
+- **Private Services**: Only visible to the service owner
+- **IBM Services**: Special organization containing shared public services accessible to all users
 
-# JSON output for automation
-./can-i-list-services.sh --json mycreds.env
+**Permission Logic:**
 
-# Verbose mode for debugging
-./can-i-list-services.sh --verbose
-```
+**Level 1: IBM Public Services**
+- **Prediction**: Always YES for authenticated users
+- **Reason**: IBM public services are accessible to all authenticated users
+- **Filtering**: Counts only services where `public: true`
+- **Scope**: IBM organization (configurable via `--ibm-org` flag)
 
-**Options:**
-- `-o, --org ORG` - Target organization to check (default: auth org)
-- `-i, --ibm-org ORG` - IBM organization name (default: IBM)
-- `-v, --verbose` - Show detailed output with API responses
-- `-j, --json` - Output JSON only (for scripting/automation)
-- `-h, --help` - Show help message
+**Level 2: Organization Public Services**
+- **Prediction**: Always YES for authenticated users
+- **Reason**: Public services in any organization are accessible to all users
+- **Filtering**: Counts only services where `public: true`
+- **Scope**: Target organization (specified via `--org` flag or defaults to auth org)
 
-**Service Visibility Rules:**
-- Users can list their own public and private services
-- Users can list all public services in their organization
-- Users can list all public services in the IBM organization
-- Private services are only visible to their owner
+**Level 3: Own Services (Public + Private)**
+- **Prediction**: Always YES for authenticated users
+- **Reason**: Users can always list their own services
+- **Filtering**: Counts all services (both public and private)
+- **Scope**: Services owned by authenticated user in auth organization
 
-**Three-Level Testing (General → Specific):**
-1. **Level 1**: List IBM public services - Any authenticated user
-2. **Level 2**: List organization's public services - Any authenticated user
-3. **Level 3**: List own services (public + private) - Any authenticated user
+**Key Differences from Other Permission Scripts:**
 
-**Features:**
-- Progressive permission testing from broadest to narrowest scope
-- Accurate public/private service filtering and counting
-- Configurable IBM organization name
-- Shows service counts at each level (total, public, private)
-- Multiple output modes (human-readable, JSON, verbose)
-- API key authentication support with automatic username resolution
-- Exit codes: 0 (can list at all levels), 1 (cannot list at one or more levels), 2 (error)
+1. **No Admin Requirements**: Unlike user/org listing, service listing doesn't require admin privileges
+2. **Public/Private Filtering**: Must accurately filter and count services by visibility
+3. **IBM Organization**: Special handling for IBM org as a shared service catalog
+4. **Owner Parameter**: Uses `owner={org}/{user}` format for Level 3 queries
+5. **Service Counting**: Tracks total, public, and private service counts separately
 
+**Output Modes:**
+- **Default**: Human-readable with service counts at each level
+- **Verbose** (`--verbose`): Includes full API responses with JSON formatting
+- **JSON** (`--json`): Machine-readable output for automation
 
-- Exit codes: 0 (can list org users), 1 (cannot list), 2 (error)
+**Exit Codes:**
+- `0`: User CAN list services at all tested levels
+- `1`: User CANNOT list services at one or more levels (but can list own)
+- `2`: Error (invalid arguments, API error, authentication failure)
 
-### test-credentials.sh (Credential Testing)
-
-Test and validate Open Horizon credentials from .env files.
-
-**Usage:**
-```bash
-./test-credentials.sh
-```
-
-**Features:**
-- Interactive .env file selection
-- Validates all required environment variables
-- Tests Exchange connectivity
-- Verifies user authentication
-- Checks user permissions
-- Displays credential summary
-- Provides detailed troubleshooting tips on failure
-
-**Validation Checks:**
-- ✓ Exchange URL is reachable
-- ✓ Organization exists
-- ✓ User is authenticated
-- ✓ User has permission to list users
-- ✓ Counts users in organization
-
-### test-hzn.sh (CLI Testing)
-
-Test Open Horizon CLI installation and configuration.
-
-**Usage:**
-```bash
-./test-hzn.sh
-```
-
-**Features:**
-- Checks if hzn CLI is installed
-- Verifies CLI version
-- Tests agent connectivity
-- Validates node configuration
 ## Environment File Configuration
 
 All scripts use `.env` files for credential management. Create one or more `.env` files with the following format:
 
-### Username/Password Authentication
 ```bash
 HZN_EXCHANGE_URL=https://open-horizon.lfedge.iol.unh.edu:3090/v1/
 HZN_ORG_ID=myorg
 HZN_EXCHANGE_USER_AUTH=myuser:mypassword
 ```
-
-### API Key Authentication
-```bash
-HZN_EXCHANGE_URL=https://open-horizon.lfedge.iol.unh.edu:3090/v1/
-HZN_ORG_ID=myorg
-HZN_EXCHANGE_USER_AUTH=apikey:f47ac10b-58cc-4372-a567-0e02b2c3d479
-```
-
-**Note**: When using API key authentication, the scripts will automatically resolve the actual username by querying the Exchange API. This is particularly useful for the `can-i-list-*` permission verification scripts.
 
 **Multiple Environment Support:**
 You can create multiple `.env` files for different environments:
@@ -684,128 +580,6 @@ You can create multiple `.env` files for different environments:
 - etc.
 
 **Security Note:** Never commit `.env` files to version control. Add `*.env` to `.gitignore` (except `example.env`).
-
-
-## Prerequisites
-
-### Is the CLI installed, configured, and running?
-
-#### Installed and location
-`which hzn` should tell you if the binary is installed and available.
-
-#### Running
-`hzn version` should tell you if the CLI is running.  You should receive values for both the CLI and the agent.  If the agent is not running, you will receive an error message like below:
-
-```bash
-$ hzn version
-Horizon CLI version: 2.31.0-1528
-Horizon Agent version: failed to get.
-```
-
-On macOS, you can try running the agent with IF docker desktop or podman desktop is installed and running:
-
-```bash
-horizon-container start
-```
-
-If that throws an error message like the following, then start Docker Desktop or Podman Desktop:
-
-```bash
-Starting the Horizon agent container openhorizon/amd64_anax:2.31.0-1528...
-failed to connect to the docker API at unix:///Users/josephpearson/.docker/run/docker.sock; check if the path is correct and if the daemon is running: dial unix /Users/josephpearson/.docker/run/docker.sock: connect: no such file or directory
-Error: exit code 1 from: docker run
-```
-
-IF running `horizon-contain start` results in an error message like the following, then you need to stop and restart the container:
-
-```bash
-Starting the Horizon agent container openhorizon/amd64_anax:2.31.0-1528...
-docker: Error response from daemon: Conflict. The container name "/horizon1" is already in use by container "1ff9c8e008e5c9900108db92570b564efac8b2d72f08d30bf32de3502d8c7c72". You have to remove (or rename) that container to be able to reuse that name.
-
-Run 'docker run --help' for more information
-Error: exit code 125 from: docker run
-```
-
-Then `horizon-container stop` and `horizon-container start` should resolve the issue.  NOTE: Stopping the container may require you to enter your password.
-
-When it is running properly, you should see something like the following:
-
-```bash
-% hzn version
-Horizon CLI version: 2.31.0-1528
-Horizon Agent version: 2.31.0-1528
-```
-
-**Note:** Version numbers shown in examples may vary based on your Open Horizon installation.
-
-#### Configured
-
-##### Node configured?
-
-```bash
-hzn node ls
-```
-
-Should return something like the following:
-
-```bash
-% hzn node ls
-{
-  "id": "joeinteel",
-  "organization": null,
-  "pattern": null,
-  "name": null,
-  "nodeType": null,
-  "clusterNamespace": null,
-  "token_last_valid_time": "",
-  "token_valid": null,
-  "ha_group": null,
-  "configstate": {
-    "state": "unconfigured",
-    "last_update_time": ""
-  },
-  "configuration": {
-    "exchange_api": "http://open-horizon.lfedge.iol.unh.edu:3090/v1/",
-    "exchange_version": "2.110.4",
-    "required_minimum_exchange_version": "2.90.1",
-    "preferred_exchange_version": "2.110.1",
-    "mms_api": "http://open-horizon.lfedge.iol.unh.edu:9443",
-    "architecture": "amd64",
-    "horizon_version": "2.31.0-1528"
-  }
-}
-```
-
-##### Exchange reachable and user authenticated?
-
-```bash
-hzn ex user ls
-```
-
-If you see something like the following, you do not have the proper environment variables set:
-
-```bash
-Error: organization ID must be specified with either the -o flag or HZN_ORG_ID
-```
-
-If it is properly configured and reachable, the response will be similar to the following:
-
-```bash
-{
-  "examples/joewxboy": {
-    "password": "********",
-    "email": "joe.pearson@us.ibm.com",
-    "admin": true,
-    "hubAdmin": false,
-    "lastUpdated": "2025-04-25T18:26:34.773362847Z[UTC]",
-    "updatedBy": "root/root"
-  }
-}
-```
-
-Where "examples/joewxboy" is your org ID and user ID, "email" is your email address, and "admin" is true if you are an admin.
-
-## Open Horizon CLI Operations
 
 ### Listing Organizations
 
@@ -874,80 +648,79 @@ hzn exchange node list
 hzn exchange service list
 ```
 
-## Security Best Practices
+**Note:** Version numbers shown in examples (e.g., 2.31.0-1528) may vary based on your Open Horizon installation.
 
-- **Never commit `.env` files to version control**
-- Add `*.env` to your `.gitignore` file (except `example.env`)
-- Use different credentials for different environments
-- Rotate credentials regularly
-- Use least-privilege access for service accounts
-- Store sensitive credentials securely
-- Use HTTPS for all API calls
-- Validate all user inputs in scripts
+## Development Workflow
 
-## Troubleshooting
+### Git Workflow Pattern
 
-### Script can't find .env files
-- Ensure your `.env` files are in the same directory as the script
-- Check file permissions: `ls -la *.env`
-- Verify file names end with `.env` extension
+When performing new work in this repository:
 
-### Authentication errors
-- Verify credentials in your `.env` file
-- Test manually: `hzn exchange user list`
-- Check Exchange URL is correct and reachable
-- Ensure user exists in the specified organization
-- Verify password is correct (no extra spaces or special characters)
+1. **Check for open issues first** - Ask the user if unsure whether to use an existing issue
+2. **If no open issue exists:**
+   - Open a new issue describing the work
+   - Label it `bug` or `enhancement` depending on the type of work
+   - Create the label if it doesn't exist in the repository
+3. **Create a branch** with the pattern `issue-#` (e.g., `issue-3`)
+4. **Before committing changes:**
+   - **Always update `README.md` and `AGENTS.md`** to document any new scripts or features
+   - Run tests: `./run-tests.sh`
+   - Run shellcheck: `shellcheck *.sh`
+5. **When committing changes:**
+   - Use the `-s` sign-off flag
+   - Prefix the commit title with `Issue #: ` (e.g., `Issue #3: Fix false failure report`)
+6. **When opening the PR:**
+   - Use the same `Issue #: ` prefix in the PR title
+   - Link to the issue in the PR description
+   - Ensure CI/CD tests pass
 
-### Agent not running
-- On macOS: `horizon-container start`
-- Check Docker/Podman is running
-- Verify with: `hzn version`
-- If container conflict, try: `horizon-container stop` then `horizon-container start`
+### Design Principles
 
-### Permission errors
-- Verify your user has appropriate permissions in the organization
-- Check if you're using the correct organization ID
-- Contact your Open Horizon administrator for access
+1. **Three operation modes:**
+   - **Default**: Interactive exploration with prompts and helpful output
+   - **Verbose**: Exhaustive details for troubleshooting (`--verbose`)
+   - **Minimal**: Machine-readable JSON for automation (`--json`)
 
-### API connection errors
-- Verify the Exchange URL is correct and includes the API version (e.g., `/v1`)
-- Check network connectivity to the Exchange server
-- Ensure firewall rules allow access to the Exchange
-- Test with curl: `curl -u "$HZN_ORG_ID/$USER:$PASS" "$HZN_EXCHANGE_URL/orgs"`
+2. **Minimal dependencies:**
+   - Bash 3.2+ compatibility (macOS support)
+   - curl (required for API scripts)
+   - jq (optional but recommended for JSON parsing)
+   - hzn CLI (optional, only for CLI-based scripts)
 
-## Contributing
+3. **Security first:**
+   - Never commit `.env` files to version control
+   - Support multiple credential files for different environments
+   - Clear error messages for authentication failures
+   - Validate SSL certificates (with option to skip for dev environments)
 
-Contributions are welcome! Please follow the coding standards outlined in `AGENTS.md`.
+4. **Error handling:**
+   - Use `set -euo pipefail` for strict error handling
+   - Implement trap handlers for cleanup
+   - Provide helpful error messages with troubleshooting tips
+   - Exit with appropriate status codes
 
-### Development Guidelines
-- Follow bash scripting best practices
-- Add error handling and validation
-- Include helpful error messages
-- Test scripts with multiple .env files
-- Document new features in both README.md and AGENTS.md
-- Use consistent formatting and style
+5. **Testing:**
+   - Write unit tests for shared library functions
+   - Write integration tests for complete scripts
+   - Run tests before committing: `./run-tests.sh`
+   - Maintain test fixtures in `tests/fixtures/`
 
-## Additional Resources
+### Code Style Guidelines
 
-- [Open Horizon Documentation](https://open-horizon.github.io/)
-- [Open Horizon GitHub](https://github.com/open-horizon)
-- [Horizon CLI Reference](https://github.com/open-horizon/anax/blob/master/docs/cli.md)
-- [Exchange API Documentation](https://github.com/open-horizon/exchange-api)
+- Use consistent indentation (2 spaces)
+- Add comments for complex logic
+- Use descriptive variable names
+- Follow existing patterns in the codebase
+- Use color-coded output for user-facing messages
+- Implement cleanup functions with trap handlers
+- Validate inputs before processing
+- Provide multiple output modes where appropriate
 
-## Testing
+### Testing Requirements
 
-This project includes a comprehensive test suite using bats-core (Bash Automated Testing System). For detailed testing information, see [TESTING.md](TESTING.md).
-
-### Quick Start
+Before submitting a PR:
 
 ```bash
-# Install bats (macOS)
-brew install bats-core
-
-# Install bats (Linux)
-sudo apt-get install bats
-
 # Run all tests
 ./run-tests.sh
 
@@ -955,20 +728,33 @@ sudo apt-get install bats
 ./run-tests.sh --unit          # Unit tests only
 ./run-tests.sh --integration   # Integration tests only
 ./run-tests.sh --shellcheck    # Static analysis only
+
+# Run shellcheck manually
+shellcheck *.sh lib/*.sh
 ```
 
-### Test Structure
+### Documentation Requirements
 
-- **Unit Tests** (`tests/unit/`): Test individual functions in `lib/common.sh`
-- **Integration Tests** (`tests/integration/`): Test complete scripts end-to-end
-- **Fixtures** (`tests/fixtures/`): Test data and mock credential files
-- **CI/CD** (`.github/workflows/test.yml`): Automated testing on push and PR
+When adding new features:
 
-### Writing Tests
+1. Update `README.md` with:
+   - Script description and usage examples
+   - Available options and flags
+   - Output format examples
+   - Troubleshooting tips
 
-See [TESTING.md](TESTING.md) for comprehensive documentation on:
-- Writing new tests
-- Test best practices
-- Using test helpers
-- Debugging test failures
-- Contributing test coverage
+2. Update `AGENTS.md` with:
+   - Technical implementation details
+   - Design decisions
+   - Integration points with other scripts
+
+3. Update `.cursor/scratchpad.md` (project roadmap) if:
+   - Completing a roadmap item
+   - Identifying new improvement opportunities
+
+4. Add inline comments for:
+   - Complex logic or algorithms
+   - Non-obvious design decisions
+   - Workarounds for compatibility issues
+
+This guide ensures consistent, maintainable, and secure code across all Open Horizon admin utilities.

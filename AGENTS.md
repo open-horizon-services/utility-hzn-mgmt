@@ -25,6 +25,9 @@ hzn-utils/
 └── *.env                      # Credential files (not in git)
 ```
 
+├── can-i-list-services.sh     # Service permission verification
+├── can-i-do-anything.sh       # Comprehensive permission checker
+
 ## Available Scripts
 
 This repository contains several utility scripts for managing Open Horizon instances:
@@ -36,6 +39,9 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 
 ### Permission Scripts
+- **`can-i-list-services.sh`** - Check if user can list services at different levels
+- **`can-i-do-anything.sh`** - Comprehensive checker showing all runnable scripts
+
 - **`can-i-list-users.sh`** - Check if user can list users in an organization
 - **`can-i-list-orgs.sh`** - Check if user can list organizations
 
@@ -66,9 +72,12 @@ This repository contains several utility scripts for managing Open Horizon insta
 ## Shell Compatibility Notes
 
 ### Bash Version Requirements
-These scripts are designed to work with Bash 3.2+ for maximum compatibility across different systems (including older macOS versions).
+**CRITICAL: All scripts in this repository MUST be compatible with Bash 3.2+**
+
+These scripts are designed to work with Bash 3.2+ for maximum compatibility across different systems (including older macOS versions). This is a hard requirement - do not use features that require Bash 4.0+.
 
 **Known Compatibility Issues:**
+- **Associative Arrays (`declare -A`)**: NOT AVAILABLE in Bash 3.x. Use indexed arrays instead.
 - **`mapfile` / `readarray`**: Not available in Bash 3.x (macOS default). Scripts use `while read` loops instead for array population.
 - **Process substitution** (`< <(command)`): Requires Bash 4.0+ but is used sparingly with fallbacks where needed.
 
@@ -492,6 +501,412 @@ Advanced script to check if the authenticated user can list services at differen
 **Key Differences from Other Permission Scripts:**
 
 1. **No Admin Requirements**: Unlike user/org listing, service listing doesn't require admin privileges
+
+
+### can-i-do-anything.sh (Comprehensive Permission Checker)
+
+Advanced meta-script that determines which Open Horizon admin utility scripts the authenticated user can run based on their role and permissions. Provides a comprehensive overview of available operations.
+
+**Technical Implementation:**
+
+**Core Architecture:**
+
+1. **Phase 1: User Information Gathering**
+   - Fetches authenticated user's role via `GET /orgs/{HZN_ORG_ID}/users/{AUTH_USER}`
+   - Extracts `admin` and `hubAdmin` status
+   - Determines user role: Hub Admin, Org Admin, or Regular User
+
+2. **Phase 2: Permission Testing**
+   - Calls existing `can-i-list-orgs.sh --json` to test organization permissions
+   - Calls existing `can-i-list-users.sh --json` to test user listing permissions
+   - Calls existing `can-i-list-services.sh --json` to test service permissions
+   - Aggregates results to build permission profile
+
+3. **Phase 3: Script Mapping**
+   - Maintains internal registry of all available scripts with metadata
+   - Maps each script to required permission level
+   - Filters scripts based on user's actual permissions
+   - Groups scripts by category for organized display
+
+4. **Phase 4: Output Generation**
+   - Formats results based on selected output mode
+   - Provides actionable information about available operations
+
+**Script Registry Structure:**
+
+```bash
+declare -A SCRIPTS=(
+    # Format: "script_name"="category|description|requires_org_admin|requires_hub_admin|notes"
+    
+    # Organization Management
+    ["list-orgs.sh"]="org|List organizations interactively|false|false|Uses hzn CLI"
+    ["list-a-orgs.sh"]="org|List organizations via API|false|false|API-based"
+    ["can-i-list-orgs.sh"]="org|Check organization listing permissions|false|false|Always runnable"
+    
+    # User Management
+    ["list-users.sh"]="user|List users in organization|true|false|Requires org admin"
+    ["list-a-users.sh"]="user|List users via API|true|false|Requires org admin"
+    ["list-user.sh"]="user|Show current user info|false|false|Always runnable"
+    ["list-a-user.sh"]="user|Show current user info via API|false|false|Always runnable"
+    ["can-i-list-users.sh"]="user|Check user listing permissions|false|false|Always runnable"
+    
+    # Node Management
+    ["list-a-org-nodes.sh"]="node|List all nodes in organization|true|false|Requires org admin"
+    ["list-a-user-nodes.sh"]="node|List nodes for specific user|false|false|Always runnable"
+    ["monitor-nodes.sh"]="node|Real-time node monitoring|false|false|Always runnable"
+    
+    # Service Management
+    ["list-a-user-services.sh"]="service|List services for specific user|false|false|Always runnable"
+    ["can-i-list-services.sh"]="service|Check service listing permissions|false|false|Always runnable"
+    
+    # Deployment Policy Management
+    ["list-a-user-deployment.sh"]="deployment|List deployment policies for user|false|false|Always runnable"
+    
+    # Testing & Validation
+    ["test-credentials.sh"]="test|Test and validate credentials|false|false|Always runnable"
+    ["test-hzn.sh"]="test|Test CLI installation|false|false|Always runnable"
+)
+```
+
+**Permission Logic:**
+
+```bash
+# Determine if script is runnable
+is_runnable=true
+
+if [ "$requires_hub_admin" = "true" ] && [ "$is_hub_admin" != "true" ]; then
+    is_runnable=false
+elif [ "$requires_org_admin" = "true" ] && [ "$is_admin" != "true" ] && [ "$is_hub_admin" != "true" ]; then
+    is_runnable=false
+fi
+```
+
+**Usage:**
+```bash
+# Interactive mode (default)
+./can-i-do-anything.sh
+
+# Use specific .env file
+./can-i-do-anything.sh mycreds.env
+
+# JSON output for automation
+./can-i-do-anything.sh --json mycreds.env
+
+# Verbose mode with detailed explanations
+./can-i-do-anything.sh --verbose
+```
+
+**Options:**
+- `-v, --verbose` - Show detailed output with permission explanations
+- `-j, --json` - Output JSON only (for scripting/automation)
+- `-h, --help` - Show help message
+
+**Output Modes:**
+
+**1. Interactive Mode (Default):**
+```
+═══════════════════════════════════════════════════════════════
+Available Scripts for User: myuser (Organization: myorg)
+═══════════════════════════════════════════════════════════════
+
+Your Role: Org Admin
+
+Organization Management (3 scripts)
+  1. list-orgs.sh              - List organizations interactively
+  2. list-a-orgs.sh            - List organizations via API
+  3. can-i-list-orgs.sh        - Check organization listing permissions
+
+User Management (5 scripts)
+  4. list-users.sh             - List users in organization
+  5. list-a-users.sh           - List users via API
+  6. list-user.sh              - Show current user info
+  7. list-a-user.sh            - Show current user info via API
+  8. can-i-list-users.sh       - Check user listing permissions
+
+Node Management (3 scripts)
+  9. list-a-org-nodes.sh       - List all nodes in organization
+ 10. list-a-user-nodes.sh      - List nodes for specific user
+ 11. monitor-nodes.sh          - Real-time node monitoring
+
+Service Management (2 scripts)
+ 12. list-a-user-services.sh   - List services for specific user
+ 13. can-i-list-services.sh    - Check service listing permissions
+
+Deployment Policy Management (1 script)
+ 14. list-a-user-deployment.sh - List deployment policies for user
+
+Testing & Validation (2 scripts)
+ 15. test-credentials.sh       - Test and validate credentials
+ 16. test-hzn.sh               - Test CLI installation
+
+═══════════════════════════════════════════════════════════════
+Total: 16 scripts available
+═══════════════════════════════════════════════════════════════
+```
+
+**2. JSON Mode (`--json`):**
+```json
+{
+  "user": {
+    "username": "myuser",
+    "organization": "myorg",
+    "is_admin": true,
+    "is_hub_admin": false,
+    "role": "Org Admin"
+  },
+  "permissions": {
+    "can_list_all_orgs": false,
+    "can_list_own_org": true,
+    "can_list_users": true,
+    "can_list_services": true
+  },
+  "scripts": [
+    {
+      "name": "list-orgs.sh",
+      "category": "org",
+      "description": "List organizations interactively",
+      "path": "./list-orgs.sh",
+      "runnable": true,
+      "requires": "authenticated"
+    }
+    // ... more scripts
+  ],
+  "summary": {
+    "total_scripts": 16,
+    "runnable_scripts": 16,
+    "restricted_scripts": 0
+  }
+}
+```
+
+**3. Verbose Mode (`--verbose`):**
+```
+═══════════════════════════════════════════════════════════════
+Detailed Script Analysis for User: myuser (Organization: myorg)
+═══════════════════════════════════════════════════════════════
+
+User Information:
+  Username:      myuser
+  Organization:  myorg
+  Org Admin:     true
+  Hub Admin:     false
+  Role:          Org Admin
+
+Permission Test Results:
+  ✓ Can list own organization
+  ✓ Can list users in organization
+  ✓ Can list services (public and own)
+  ✓ Can list own nodes
+  ✓ Can list own deployment policies
+
+═══════════════════════════════════════════════════════════════
+Organization Management Scripts
+═══════════════════════════════════════════════════════════════
+
+1. list-orgs.sh
+   Description:  List organizations interactively using hzn CLI
+   Path:         ./list-orgs.sh
+   Runnable:     ✓ YES
+   Requires:     Any authenticated user
+   Notes:        Uses hzn CLI, lists accessible orgs
+
+2. list-a-orgs.sh
+   Description:  List organizations via REST API
+   Path:         ./list-a-orgs.sh
+   Runnable:     ✓ YES
+   Requires:     Any authenticated user
+   Notes:        API-based, lists accessible orgs
+
+// ... more detailed entries
+```
+
+**Script Categories:**
+
+1. **Organization Management** (3 scripts)
+   - Organization listing and permission checking
+   - Available to all authenticated users
+   - Hub admins see all orgs, org admins see own org
+
+2. **User Management** (5 scripts)
+   - User listing and information retrieval
+   - Admin scripts require org admin or hub admin
+   - Self-info scripts available to all users
+
+3. **Node Management** (3 scripts)
+   - Node listing and monitoring
+   - Org-wide listing requires admin
+   - User-specific listing available to all
+
+4. **Service Management** (2 scripts)
+   - Service listing and permission checking
+   - All authenticated users can list services
+   - Public services visible to everyone
+
+5. **Deployment Policy Management** (1 script)
+   - Deployment policy listing
+   - Users can list their own policies
+
+6. **Testing & Validation** (2 scripts)
+   - Credential and CLI testing
+   - Available to all authenticated users
+
+**Integration with Existing Scripts:**
+
+The script leverages existing permission checkers:
+
+```bash
+# Test organization permissions
+org_perms=$(bash "${SCRIPT_DIR}/can-i-list-orgs.sh" --json "$selected_file" 2>/dev/null)
+can_list_all_orgs=$(echo "$org_perms" | jq -r '.result.scope == "ALL"')
+
+# Test user permissions
+user_perms=$(bash "${SCRIPT_DIR}/can-i-list-users.sh" --json "$selected_file" 2>/dev/null)
+can_list_users=$(echo "$user_perms" | jq -r '.result.can_list_org_users')
+
+# Test service permissions
+service_perms=$(bash "${SCRIPT_DIR}/can-i-list-services.sh" --json "$selected_file" 2>/dev/null)
+can_list_services=$(echo "$service_perms" | jq -r '.result.can_list_own_services')
+```
+
+**Key Features:**
+
+1. **Automatic Permission Detection**
+   - No manual configuration needed
+   - Tests actual API permissions
+   - Handles API key authentication
+
+2. **Comprehensive Coverage**
+   - Covers all 16+ utility scripts in repository
+   - Groups by functional category
+   - Shows both available and restricted scripts
+
+3. **Multiple Output Formats**
+   - Interactive for exploration
+   - JSON for automation
+   - Verbose for troubleshooting
+
+4. **User-Friendly**
+   - Clear role identification
+   - Numbered list for easy reference
+   - Helpful notes and descriptions
+
+**Maintenance Guidelines:**
+
+When adding a new script to the repository:
+
+1. **Update the SCRIPTS array:**
+   ```bash
+   ["new-script.sh"]="category|Description|requires_org_admin|requires_hub_admin|notes"
+   ```
+
+2. **Choose appropriate category:**
+   - `org` - Organization management
+   - `user` - User management
+   - `node` - Node management
+   - `service` - Service management
+   - `deployment` - Deployment policy management
+   - `test` - Testing and validation
+
+3. **Set permission requirements:**
+   - `requires_org_admin`: true if script needs org admin or hub admin
+   - `requires_hub_admin`: true if script needs hub admin only
+   - Both false if available to all authenticated users
+
+4. **Add descriptive notes:**
+   - Brief explanation of what the script does
+   - Any special requirements or behaviors
+
+5. **Update documentation:**
+   - Add entry to README.md
+   - Add entry to AGENTS.md
+   - Update this section if new categories are added
+
+**Error Handling:**
+
+1. **Permission Test Failures:**
+   - Gracefully degrades if permission scripts fail
+   - Falls back to role-based assumptions
+   - Logs warnings in verbose mode
+
+2. **Missing Scripts:**
+   - Checks for script file existence before listing
+   - Skips non-existent scripts silently
+   - No errors if optional scripts are missing
+
+3. **Authentication Failures:**
+   - Clear error messages with troubleshooting tips
+   - Suggests running `test-credentials.sh`
+   - Exit code 2 for errors
+
+**Exit Codes:**
+- `0` - Success, displayed available scripts
+- `1` - No scripts available (shouldn't happen for authenticated users)
+- `2` - Error (invalid arguments, API error, authentication failure)
+
+**Design Decisions:**
+
+1. **Why use existing can-i-* scripts:**
+   - Avoids code duplication
+   - Ensures consistent permission logic
+   - Leverages well-tested implementations
+
+2. **Why group by category:**
+   - Easier to find related scripts
+   - Logical organization for users
+   - Scales well as more scripts are added
+
+3. **Why three output modes:**
+   - Interactive for human exploration
+   - JSON for automation and integration
+   - Verbose for debugging and learning
+
+4. **Why test actual permissions:**
+   - More accurate than role-based assumptions
+   - Handles edge cases and custom configurations
+   - Provides real-world validation
+
+**Performance Considerations:**
+
+1. **Permission Testing:**
+   - Runs 3 permission check scripts (orgs, users, services)
+   - Each makes 1-3 API calls
+   - Total execution time: 2-5 seconds typically
+
+2. **Optimization Opportunities:**
+   - Cache permission test results
+   - Parallel execution of permission checks
+   - Skip tests if role is obvious (e.g., hub admin)
+
+3. **Current Trade-offs:**
+   - Accuracy over speed
+   - Comprehensive testing over quick results
+   - Real API validation over assumptions
+
+**Future Enhancements:**
+
+1. **Filtering Options:**
+   - Filter by category
+   - Filter by permission level
+   - Search by script name or description
+
+2. **Interactive Execution:**
+   - Allow running scripts directly from the list
+   - Pass parameters interactively
+   - Chain multiple script executions
+
+3. **Permission Caching:**
+   - Cache permission test results
+   - Configurable cache duration
+   - Force refresh option
+
+4. **Custom Script Registry:**
+   - Support for user-defined scripts
+   - External script registry file
+   - Plugin architecture for extensions
+
+This implementation provides a powerful, user-friendly tool for understanding and navigating the Open Horizon admin utilities ecosystem, with careful attention to maintainability, accuracy, and user experience.
+
+
 2. **Public/Private Filtering**: Must accurately filter and count services by visibility
 3. **IBM Organization**: Special handling for IBM org as a shared service catalog
 4. **Owner Parameter**: Uses `owner={org}/{user}` format for Level 3 queries
