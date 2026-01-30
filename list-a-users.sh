@@ -94,6 +94,9 @@ if [ "$JSON_ONLY" = false ]; then
     echo ""
 fi
 
+# Display the API request in verbose mode
+display_api_request "GET" "${BASE_URL}/orgs/${HZN_ORG_ID}/users"
+
 # Make the API call
 # Note: HZN_EXCHANGE_URL should already include the API version (e.g., /v1)
 response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/users" 2>&1)

@@ -93,6 +93,9 @@ if [ "$JSON_ONLY" = false ]; then
     echo ""
 fi
 
+# Display the API request in verbose mode
+display_api_request "GET" "${BASE_URL}/orgs/${HZN_ORG_ID}/users/${AUTH_USER}"
+
 # Make the API call to get the specific user
 # The endpoint is /orgs/{org}/users/{username}
 # Using -k to allow self-signed certificates (common in Open Horizon deployments)

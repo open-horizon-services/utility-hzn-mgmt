@@ -141,6 +141,9 @@ if [ "$JSON_ONLY" = false ]; then
     echo ""
 fi
 
+# Display the API request in verbose mode
+display_api_request "GET" "${BASE_URL}/orgs/${HZN_ORG_ID}/business/policies?owner=${OWNER_ID}"
+
 # Make the API call to get deployment policies owned by the user
 # API endpoint: /orgs/{orgid}/business/policies?owner={org/userid}
 # Note: The owner parameter must be in org/user format

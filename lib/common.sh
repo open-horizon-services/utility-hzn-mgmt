@@ -231,6 +231,9 @@ resolve_apikey_username() {
         print_info "Resolving username from API key..."
     fi
     
+    # Display the API request in verbose mode
+    display_api_request "GET" "${BASE_URL}/orgs/${HZN_ORG_ID}/users/apikey"
+    
     # Make API call to get user info using apikey
     local user_response
     user_response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/users/apikey" 2>&1)
@@ -387,6 +390,9 @@ make_api_call() {
     
     local url="${BASE_URL}${endpoint}"
     
+    # Display the API request in verbose mode
+    display_api_request "$method" "$url" "$data"
+    
     if [ -n "$data" ]; then
         response=$(curl -sS -k -w "\n%{http_code}" -X "$method" -u "$FULL_AUTH" \
             -H "Content-Type: application/json" -d "$data" "$url" 2>&1)
@@ -455,6 +461,9 @@ test_api_access() {
     if [ "$JSON_ONLY" != true ]; then
         print_info "Testing: $description"
     fi
+    
+    # Display the API request in verbose mode
+    display_api_request "GET" "${BASE_URL}${endpoint}"
     
     # Make the API call
     local response
@@ -546,6 +555,120 @@ count_json_items() {
     echo "$count"
 }
 
+# Display API request details with color-coded variables
+# Arguments:
+#   $1 - HTTP method (GET, POST, PUT, DELETE)
+#   $2 - Full URL
+#   $3 - Optional: Request body/data
+# Returns: Nothing (prints to stdout)
+# Note: Only displays in verbose mode (when VERBOSE=true)
+display_api_request() {
+    # Only display in verbose mode
+    if [ "${VERBOSE:-false}" != true ]; then
+        return 0
+    fi
+    
+    local method="$1"
+    local url="$2"
+    local data="${3:-}"
+    
+    echo ""
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${CYAN}API Request${NC}"
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    
+    # Display method with color
+    echo -e "Method: ${YELLOW}${method}${NC}"
+    
+    # Build colored URL piece by piece to avoid escape sequence issues
+    echo -n "URL:    "
+    
+    # Start with base URL in green
+    if [ -n "${BASE_URL:-}" ]; then
+        echo -n -e "${GREEN}${BASE_URL}${NC}"
+        # Remove base URL from the working URL
+        local path="${url#${BASE_URL}}"
+    else
+        local path="$url"
+    fi
+    
+    # Process the path, coloring specific segments
+    local remaining="$path"
+    while [ -n "$remaining" ]; do
+        case "$remaining" in
+            /orgs/${HZN_ORG_ID}*)
+                echo -n "/orgs/"
+                echo -n -e "${YELLOW}${HZN_ORG_ID}${NC}"
+                remaining="${remaining#/orgs/${HZN_ORG_ID}}"
+                ;;
+            /users/${AUTH_USER}*)
+                echo -n "/users/"
+                echo -n -e "${MAGENTA}${AUTH_USER}${NC}"
+                remaining="${remaining#/users/${AUTH_USER}}"
+                ;;
+            /nodes*)
+                echo -n "/"
+                echo -n -e "${BLUE}nodes${NC}"
+                remaining="${remaining#/nodes}"
+                ;;
+            /services*)
+                echo -n "/"
+                echo -n -e "${BLUE}services${NC}"
+                remaining="${remaining#/services}"
+                ;;
+            /business/policies*)
+                echo -n "/"
+                echo -n -e "${BLUE}business/policies${NC}"
+                remaining="${remaining#/business/policies}"
+                ;;
+            /apikey*)
+                echo -n "/"
+                echo -n -e "${MAGENTA}apikey${NC}"
+                remaining="${remaining#/apikey}"
+                ;;
+            \?owner=*)
+                echo -n "?owner="
+                local owner_val="${remaining#\?owner=}"
+                owner_val="${owner_val%%&*}"
+                owner_val="${owner_val%%\?*}"
+                echo -n -e "${CYAN}${owner_val}${NC}"
+                remaining="${remaining#\?owner=${owner_val}}"
+                ;;
+            *)
+                # Output one character and continue
+                echo -n "${remaining:0:1}"
+                remaining="${remaining:1}"
+                ;;
+        esac
+    done
+    echo ""  # Newline after URL
+    
+    # Display authentication (mask password)
+    if [ -n "${FULL_AUTH:-}" ]; then
+        local auth_display="${FULL_AUTH%%:*}"
+        echo -n "Auth:   "
+        
+        # Color-code the org/user part
+        if [[ "$auth_display" == *"/"* ]]; then
+            local auth_org="${auth_display%%/*}"
+            local auth_user="${auth_display#*/}"
+            echo -n -e "${YELLOW}${auth_org}${NC}/"
+            echo -n -e "${MAGENTA}${auth_user}${NC}"
+        else
+            echo -n "$auth_display"
+        fi
+        echo -e ":${RED}********${NC}"
+    fi
+    
+    # Display request body if present
+    if [ -n "$data" ]; then
+        echo -e "Body:   ${CYAN}${data}${NC}"
+    fi
+    
+    echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo ""
+}
+
 # Export functions and variables for use in other scripts
 export -f print_info print_success print_error print_warning print_header
 export -f find_env_files select_env_file load_credentials parse_auth
@@ -554,6 +677,7 @@ export -f display_config check_hzn_cli check_hzn_agent check_curl check_jq
 export -f validate_url validate_org_id make_api_call validate_json
 export -f setup_cleanup_trap
 export -f test_api_access format_level_result count_json_items
+export -f display_api_request
 
 # Export color codes for use in other scripts
 export RED GREEN YELLOW BLUE CYAN MAGENTA NC

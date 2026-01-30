@@ -95,6 +95,9 @@ if [ "$JSON_ONLY" = false ]; then
     echo ""
 fi
 
+# Display the API request in verbose mode
+display_api_request "GET" "${BASE_URL}/orgs"
+
 # Make the API call
 # Note: HZN_EXCHANGE_URL should already include the API version (e.g., /v1)
 response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs" 2>&1)
@@ -177,6 +180,9 @@ if [ "$JSON_ONLY" = false ]; then
 
     # Test access to each organization
     for org in "${org_names[@]}"; do
+        # Display the API request in verbose mode
+        display_api_request "GET" "${BASE_URL}/orgs/${org}"
+        
         # Try to get detailed info for each org
         org_response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${org}" 2>&1)
         org_http_code=$(echo "$org_response" | tail -n1)

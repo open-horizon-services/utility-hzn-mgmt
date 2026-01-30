@@ -93,6 +93,9 @@ if [ "$JSON_ONLY" = false ]; then
     echo ""
 fi
 
+# Display the API request in verbose mode
+display_api_request "GET" "${BASE_URL}/orgs/${HZN_ORG_ID}/nodes"
+
 # Make the API call to get all nodes in the organization
 # API endpoint: /orgs/{orgid}/nodes
 response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/nodes" 2>&1)
