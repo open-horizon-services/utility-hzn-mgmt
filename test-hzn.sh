@@ -309,7 +309,7 @@ fi
 # Check for horizon container (if using containerized agent)
 if command -v docker &> /dev/null && docker ps &> /dev/null; then
     print_info "Checking for Horizon container..."
-    horizon_container=$(docker ps -a --filter "name=horizon" --format "{{.Names}}: {{.Status}}" 2>/dev/null)
+    horizon_container=$(docker ps -a --filter "name=exchange-api" --format "{{.Names}}: {{.Status}}" 2>/dev/null)
     
     if [ -n "$horizon_container" ]; then
         if echo "$horizon_container" | grep -q "Up"; then
