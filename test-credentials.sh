@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to test Open Horizon credentials from .env files
-# Usage: ./test-credentials.sh
+# Usage: ./test-credentials.sh [OPTIONS] [env-file]
 
 # Strict error handling
 set -euo pipefail
@@ -10,14 +10,67 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
+# Show usage information
+show_usage() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [env-file]
+
+Test and validate Open Horizon credentials from .env files.
+Verifies Exchange connectivity, authentication, and user permissions.
+
+OPTIONS:
+    -h, --help      Show this help message and exit
+
+ARGUMENTS:
+    env-file        Optional: Path to .env file with credentials
+                    If not provided, will prompt to select from available .env files
+
+EXAMPLES:
+    $(basename "$0")                    # Interactive mode - select .env file
+    $(basename "$0") mycreds.env        # Test specific .env file
+
+REQUIRED ENVIRONMENT VARIABLES (in .env file):
+    HZN_EXCHANGE_URL          The Horizon Exchange API URL
+    HZN_ORG_ID                Your organization ID
+    HZN_EXCHANGE_USER_AUTH    User credentials (user:password)
+
+VALIDATION CHECKS:
+    ✓ Exchange URL is reachable
+    ✓ Organization exists
+    ✓ User is authenticated
+    ✓ User has permission to list users
+    ✓ Counts users in organization
+
+EOF
+    exit 0
+}
+
 # Setup cleanup trap
 # shellcheck disable=SC2119  # Function doesn't use positional parameters
 setup_cleanup_trap
 
+# Parse command line arguments
+ENV_FILE_ARG=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_usage
+            ;;
+        *)
+            ENV_FILE_ARG="$1"
+            shift
+            ;;
+    esac
+done
+
 # Select and load credentials
 selected_file=""  # Will be set by select_env_file
-# shellcheck disable=SC2119  # select_env_file accepts optional arg, intentionally called without args for interactive mode
-select_env_file || exit 1
+if [ -n "$ENV_FILE_ARG" ]; then
+    select_env_file "$ENV_FILE_ARG" || exit 1
+else
+    # shellcheck disable=SC2119  # select_env_file accepts optional arg, intentionally called without args for interactive mode
+    select_env_file || exit 1
+fi
 load_credentials "$selected_file" || exit 1
 
 # Display configuration

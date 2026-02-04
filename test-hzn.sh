@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to test Open Horizon agent installation and configuration
-# Usage: ./test-hzn.sh
+# Usage: ./test-hzn.sh [OPTIONS]
 
 set -e
 
@@ -11,6 +11,72 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Show usage information
+show_usage() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Test Open Horizon CLI installation and agent configuration.
+Performs comprehensive checks of the Horizon environment.
+
+OPTIONS:
+    -h, --help      Show this help message and exit
+
+EXAMPLES:
+    $(basename "$0")                    # Run all installation checks
+
+CHECKS PERFORMED:
+    1. CLI Installation
+       - Verifies hzn CLI is installed and in PATH
+       - Shows installation location
+
+    2. Agent Status
+       - Checks if Horizon agent is running
+       - Displays CLI and agent versions
+       - Verifies version compatibility
+
+    3. Configuration
+       - Validates node configuration
+       - Checks Exchange connectivity
+       - Verifies environment variables
+
+    4. Authentication
+       - Tests user authentication
+       - Validates credentials
+       - Checks organization access
+
+    5. Permissions
+       - Verifies user can list organizations
+       - Checks user listing permissions
+       - Tests node access
+
+EXIT CODES:
+    0 - All checks passed
+    1 - One or more checks failed
+
+NOTES:
+    - Does not require .env file (uses environment variables if set)
+    - Provides detailed troubleshooting tips for failures
+    - Safe to run multiple times
+
+EOF
+    exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_usage
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
 
 # Function to print colored messages
 print_info() {

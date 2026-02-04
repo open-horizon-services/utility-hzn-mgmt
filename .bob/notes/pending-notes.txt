@@ -1,0 +1,7 @@
+{"id":"b54dddf6-bc6a-402f-ba9b-cd2f7e89a796","ts":"2026-02-04T20:33:27.222Z","path":"/Users/josephapearson/dev/hzn-utils/list-users.sh","version":"1.0.0","taskID":"6b198890-f4e4-4d8e-8e67-6eac1a30a9cd"}
+{"id":"29f39d8f-5522-4a14-ab51-2ce0de96a292","ts":"2026-02-04T20:33:35.972Z","path":"/Users/josephapearson/dev/hzn-utils/list-user.sh","version":"1.0.0","taskID":"6b198890-f4e4-4d8e-8e67-6eac1a30a9cd"}
+{"id":"1fc87e4b-8cd5-436a-816e-431dc688966e","ts":"2026-02-04T20:33:45.508Z","path":"/Users/josephapearson/dev/hzn-utils/test-credentials.sh","version":"1.0.0","taskID":"6b198890-f4e4-4d8e-8e67-6eac1a30a9cd"}
+{"id":"0bb4a793-0f68-456e-a875-6b4a1d3d6e9f","ts":"2026-02-04T20:33:55.243Z","path":"/Users/josephapearson/dev/hzn-utils/test-hzn.sh","version":"1.0.0","taskID":"6b198890-f4e4-4d8e-8e67-6eac1a30a9cd"}
+{"id":"00cd8a4f-7246-4da1-87ee-582e311eee25","ts":"2026-02-04T20:36:12.968Z","path":"/Users/josephapearson/dev/hzn-utils/list-orgs.sh","version":"1.0.0","taskID":"c76f9649-b63a-44bc-936b-e1a77e522d83"}
+{"id":"a0ca60e3-6779-49ee-bd84-4c4c82f4ba34","ts":"2026-02-04T20:36:18.334Z","path":"/Users/josephapearson/dev/hzn-utils/list-orgs.sh","version":"1.0.0","taskID":"c76f9649-b63a-44bc-936b-e1a77e522d83"}
+{"id":"ff65e286-8485-4647-b35a-f76f02d52f4e","ts":"2026-02-04T20:36:29.194Z","path":"/Users/josephapearson/dev/hzn-utils/list-orgs.sh","version":"1.0.0","taskID":"c76f9649-b63a-44bc-936b-e1a77e522d83"}

@@ -1,0 +1,20 @@
+{
+  "properties": [
+    {
+      "name": "openhorizon.allowPrivileged",
+      "value": false
+    }
+  ],
+  "constraints": [],
+  "deployment": {
+    "properties": [
+      {"name": "location-type", "value": "store"},
+      {"name": "city", "value": "San Jose, CA, US"}
+    ],
+    "constraints": []
+  },
+  "management": {
+    "properties": [],
+    "constraints": []
+  }
+}
