@@ -76,10 +76,18 @@ This repository contains several utility scripts for managing Open Horizon insta
 
 These scripts are designed to work with Bash 3.2+ for maximum compatibility across different systems (including older macOS versions). This is a hard requirement - do not use features that require Bash 4.0+.
 
-**Known Compatibility Issues:**
+**Bash 4.0+ Features That Are NOT ALLOWED:**
 - **Associative Arrays (`declare -A`)**: NOT AVAILABLE in Bash 3.x. Use indexed arrays instead.
-- **`mapfile` / `readarray`**: Not available in Bash 3.x (macOS default). Scripts use `while read` loops instead for array population.
-- **Process substitution** (`< <(command)`): Requires Bash 4.0+ but is used sparingly with fallbacks where needed.
+- **`mapfile` / `readarray`**: NOT AVAILABLE in Bash 3.x. Use `while read` loops instead for array population.
+- **`&>>` redirect operator**: NOT AVAILABLE in Bash 3.x. Use `>> file 2>&1` instead.
+- **`**` globstar pattern**: NOT AVAILABLE in Bash 3.x without `shopt -s globstar`.
+- **Negative array indices**: NOT AVAILABLE in Bash 3.x. Use `${array[@]: -1}` workarounds.
+
+**Bash 3.2+ Features That ARE ALLOWED:**
+- **Process substitution** (`< <(command)`): Available in Bash 3.2+ and used throughout scripts.
+- **Indexed arrays** with `+=()` operator: Available in Bash 3.2+.
+- **`[[ ]]` test operator**: Available in Bash 3.2+.
+- **`${var//pattern/replacement}` substitution**: Available in Bash 3.2+.
 
 **Portable Array Population Pattern:**
 ```bash
@@ -91,7 +99,7 @@ while IFS= read -r item; do
 done < <(command)
 ```
 
-This pattern is used throughout the scripts to ensure compatibility with older Bash versions while maintaining functionality.
+This pattern is used throughout the scripts to ensure compatibility with Bash 3.2+ while maintaining functionality.
 
 ## Usage
 
