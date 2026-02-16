@@ -369,6 +369,9 @@ Advanced script using REST API directly with multiple output modes for automatio
 # Use specific .env file
 ./list-a-users.sh mycreds.env
 
+# Query a different organization
+./list-a-users.sh -o target-org
+
 # JSON output only (for piping/automation)
 ./list-a-users.sh --json mycreds.env
 
@@ -377,6 +380,7 @@ Advanced script using REST API directly with multiple output modes for automatio
 ```
 
 **Options:**
+- `-o, --org ORG` - Target organization to query (default: auth org from HZN_ORG_ID)
 - `-v, --verbose` - Show detailed JSON response with headers
 - `-j, --json` - Output raw JSON only (no colors, headers, or messages)
 - `-h, --help` - Show help message

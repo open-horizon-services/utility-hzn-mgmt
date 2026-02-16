@@ -14,7 +14,7 @@ hzn-utils/
 ├── list-a-orgs.sh             # API-based organization listing
 ├── list-a-users.sh            # API-based user listing
 ├── list-a-user.sh             # API-based current user info
-├── can-i-list-users.sh      # Permission verification script
+├── can-i-list-users.sh        # Permission verification script
 ├── list-a-org-nodes.sh        # API-based organization node listing
 ├── list-a-user-nodes.sh       # API-based user node listing
 ├── list-a-user-services.sh    # API-based user service listing
@@ -39,11 +39,10 @@ This repository contains several utility scripts for managing Open Horizon insta
 - **`test-credentials.sh`** - Test and validate your Open Horizon credentials
 
 ### Permission Scripts
-- **`can-i-list-services.sh`** - Check if user can list services at different levels
-- **`can-i-do-anything.sh`** - Comprehensive checker showing all runnable scripts
-
 - **`can-i-list-users.sh`** - Check if user can list users in an organization
 - **`can-i-list-orgs.sh`** - Check if user can list organizations
+- **`can-i-list-services.sh`** - Check if user can list services at different levels
+- **`can-i-do-anything.sh`** - Comprehensive checker showing all runnable scripts
 
 ### API-Based Scripts (using REST API)
 - **`list-a-orgs.sh`** - List organizations using REST API with multiple output modes
@@ -316,6 +315,9 @@ Advanced script using REST API directly with multiple output modes for automatio
 # Use specific .env file
 ./list-a-users.sh mycreds.env
 
+# Query a different organization
+./list-a-users.sh -o target-org
+
 # JSON output only (for piping/automation)
 ./list-a-users.sh --json mycreds.env
 
@@ -324,6 +326,7 @@ Advanced script using REST API directly with multiple output modes for automatio
 ```
 
 **Options:**
+- `-o, --org ORG` - Target organization to query (default: auth org from HZN_ORG_ID)
 - `-v, --verbose` - Show detailed JSON response with headers
 - `-j, --json` - Output raw JSON only (no colors, headers, or messages)
 - `-h, --help` - Show help message
@@ -465,11 +468,6 @@ When using API key authentication (`HZN_EXCHANGE_USER_AUTH=apikey:<key>`), the s
 2. Queries `/orgs/{org}/users/apikey` to resolve the actual username
 3. Uses the resolved username for permission checks
 
-## Environment File Configuration
-
-All scripts use `.env` files for credential management. Create one or more `.env` files with the following format:
-
-
 ### can-i-list-services.sh (Service Permission Verification)
 
 Advanced script to check if the authenticated user can list services at different access levels using three-level verification (general to specific).
@@ -509,7 +507,55 @@ Advanced script to check if the authenticated user can list services at differen
 **Key Differences from Other Permission Scripts:**
 
 1. **No Admin Requirements**: Unlike user/org listing, service listing doesn't require admin privileges
+2. **Public/Private Filtering**: Must accurately filter and count services by visibility
+3. **IBM Organization**: Special handling for IBM org as a shared service catalog
+4. **Owner Parameter**: Uses `owner={org}/{user}` format for Level 3 queries
+5. **Service Counting**: Tracks total, public, and private service counts separately
 
+**Output Modes:**
+- **Default**: Human-readable with service counts at each level
+- **Verbose** (`--verbose`): Includes full API responses with JSON formatting
+- **JSON** (`--json`): Machine-readable output for automation
+
+**Exit Codes:**
+- `0`: User CAN list services at all tested levels
+- `1`: User CANNOT list services at one or more levels (but can list own)
+- `2`: Error (invalid arguments, API error, authentication failure)
+
+**Service Filtering Implementation:**
+
+```bash
+# For Level 1 & 2 (public services only):
+if [ "$JQ_AVAILABLE" = true ]; then
+  public_count=$(echo "$response" | jq '[.services[] | select(.public == true)] | length')
+else
+  # Fallback parsing for public services
+  public_count=$(echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len([s for s in data.get('services', {}).values() if s.get('public', False)]))")
+fi
+
+# For Level 3 (all own services):
+total_count=$(echo "$response" | jq '.services | length')
+public_count=$(echo "$response" | jq '[.services[] | select(.public == true)] | length')
+private_count=$((total_count - public_count))
+```
+
+**API Key Authentication:**
+Like other permission scripts, this script supports API key authentication and automatically resolves the username before performing permission checks.
+
+**Integration Points:**
+- Uses `lib/common.sh` for credential management and output formatting
+- Shares credential loading logic with other API-based scripts
+- Compatible with multiple `.env` file support
+- Supports API key authentication with automatic username resolution
+- Uses `test_api_access` and `count_json_items` functions from common library
+
+**Special Considerations:**
+1. **IBM Org Configuration**: Supports custom IBM org names via `--ibm-org` flag (default: "IBM")
+2. **Public Service Filtering**: Must accurately filter services by `public: true` field for Levels 1 & 2
+3. **Service Counting**: Distinguishes between total services and public-only services
+4. **Owner Format**: Uses `{org}/{user}` format for owner parameter in Level 3
+5. **Error Handling**: Handles cases where IBM org doesn't exist or is inaccessible
+6. **Backward Compatibility**: Follows same patterns as `can-i-list-users.sh` and `can-i-list-orgs.sh`
 
 ### can-i-do-anything.sh (Comprehensive Permission Checker)
 
@@ -638,7 +684,7 @@ Node Management (3 scripts)
 
 Service Management (2 scripts)
  12. list-a-user-services.sh   - List services for specific user
- 13. can-i-list-services.sh    - Check service listing permissions
+ 13. can-i-list-services.sh   - Check service listing permissions
 
 Deployment Policy Management (1 script)
  14. list-a-user-deployment.sh - List deployment policies for user
@@ -914,57 +960,9 @@ When adding a new script to the repository:
 
 This implementation provides a powerful, user-friendly tool for understanding and navigating the Open Horizon admin utilities ecosystem, with careful attention to maintainability, accuracy, and user experience.
 
+## Environment File Configuration
 
-2. **Public/Private Filtering**: Must accurately filter and count services by visibility
-3. **IBM Organization**: Special handling for IBM org as a shared service catalog
-4. **Owner Parameter**: Uses `owner={org}/{user}` format for Level 3 queries
-5. **Service Counting**: Tracks total, public, and private service counts separately
-
-**Output Modes:**
-- **Default**: Human-readable with service counts at each level
-- **Verbose** (`--verbose`): Includes full API responses with JSON formatting
-- **JSON** (`--json`): Machine-readable output for automation
-
-**Exit Codes:**
-- `0`: User CAN list services at all tested levels
-- `1`: User CANNOT list services at one or more levels (but can list own)
-- `2`: Error (invalid arguments, API error, authentication failure)
-
-**Service Filtering Implementation:**
-
-```bash
-# For Level 1 & 2 (public services only):
-if [ "$JQ_AVAILABLE" = true ]; then
-  public_count=$(echo "$response" | jq '[.services[] | select(.public == true)] | length')
-else
-  # Fallback parsing for public services
-  public_count=$(echo "$response" | python3 -c "import sys, json; data=json.load(sys.stdin); print(len([s for s in data.get('services', {}).values() if s.get('public', False)]))")
-fi
-
-# For Level 3 (all own services):
-total_count=$(echo "$response" | jq '.services | length')
-public_count=$(echo "$response" | jq '[.services[] | select(.public == true)] | length')
-private_count=$((total_count - public_count))
-```
-
-**API Key Authentication:**
-Like other permission scripts, this script supports API key authentication and automatically resolves the username before performing permission checks.
-
-**Integration Points:**
-- Uses `lib/common.sh` for credential management and output formatting
-- Shares credential loading logic with other API-based scripts
-- Compatible with multiple `.env` file support
-- Supports API key authentication with automatic username resolution
-- Uses `test_api_access` and `count_json_items` functions from common library
-
-**Special Considerations:**
-1. **IBM Org Configuration**: Supports custom IBM org names via `--ibm-org` flag (default: "IBM")
-2. **Public Service Filtering**: Must accurately filter services by `public: true` field for Levels 1 & 2
-3. **Service Counting**: Distinguishes between total services and public-only services
-4. **Owner Format**: Uses `{org}/{user}` format for owner parameter in Level 3
-5. **Error Handling**: Handles cases where IBM org doesn't exist or is inaccessible
-6. **Backward Compatibility**: Follows same patterns as `can-i-list-users.sh` and `can-i-list-orgs.sh`
-
+All scripts use `.env` files for credential management. Create one or more `.env` files with the following format:
 
 ```bash
 HZN_EXCHANGE_URL=https://open-horizon.lfedge.iol.unh.edu:3090/v1/
@@ -986,7 +984,6 @@ You can create multiple `.env` files for different environments:
 
 **Using the hzn CLI:**
 
-**Using the hzn CLI:**
 ```bash
 # Set required environment variables
 export HZN_EXCHANGE_URL="https://<exchange-host>/api/v1"
@@ -1481,4 +1478,3 @@ This format allows efficient sorting by timestamp using `sort -t'|' -k1 -rn`.
 - Different: Continuous monitoring vs one-time listing, sorted by heartbeat
 
 This implementation provides a powerful, user-friendly tool for monitoring Open Horizon node health in real-time, with careful attention to cross-platform compatibility, error handling, and user experience.
-
