@@ -1,0 +1,6 @@
+# Valid blessedSamples.txt with relative paths only
+# This file contains paths relative to https://github.com/open-horizon/examples/
+
+edge/services/cpu_percent
+edge/services/gps
+edge/services/helloworld

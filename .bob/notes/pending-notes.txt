@@ -1,1 +1,0 @@
-{"id":"5640d076-20fd-4ea6-8953-bd0016ed4103","ts":"2026-02-18T14:09:08.697Z","path":"/Users/josephapearson/dev/utility-hzn-mgmt/.gitignore","version":"1.0.0","taskID":"4e39f29f-5fa8-43d5-8acb-e97b28f56f42"}

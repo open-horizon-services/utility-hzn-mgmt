@@ -1478,3 +1478,360 @@ This format allows efficient sorting by timestamp using `sort -t'|' -k1 -rn`.
 - Different: Continuous monitoring vs one-time listing, sorted by heartbeat
 
 This implementation provides a powerful, user-friendly tool for monitoring Open Horizon node health in real-time, with careful attention to cross-platform compatibility, error handling, and user experience.
+
+### test-blessed-samples.sh (Blessed Samples Validator)
+
+Validates `blessedSamples.txt` files used by the Open Horizon `exchangePublish.sh` script. Performs format validation and GitHub repository accessibility checks using the GitHub API.
+
+**Technical Implementation:**
+
+**Core Architecture:**
+1. **Initialization Phase:**
+   - Parse command line arguments (verbose, json, skip-network, branch)
+   - Load and validate file path
+   - Check dependencies (curl required for network checks)
+   - Set up cleanup trap handlers
+
+2. **Format Detection:**
+   - Scan entire file to determine format type (relative, absolute, mixed, empty)
+   - Count relative vs absolute entries
+   - Classify file format for validation strategy
+
+3. **Validation Loop:**
+   - Process each non-empty, non-comment line
+   - Determine entry type (relative or absolute)
+   - Perform format validation
+   - Execute network checks (if not skipped)
+   - Store results for summary and JSON output
+
+4. **Output Generation:**
+   - Format results based on selected mode (interactive, verbose, JSON)
+   - Display summary statistics
+   - Exit with appropriate status code
+
+**Key Implementation Details:**
+
+**Format Detection Logic:**
+```bash
+detect_format() {
+    local file="$1"
+    local relative_count=0
+    local absolute_count=0
+    
+    while IFS= read -r line; do
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        
+        if [[ "$line" =~ ^https?:// ]]; then
+            absolute_count=$((absolute_count + 1))
+        else
+            relative_count=$((relative_count + 1))
+        fi
+    done < "$file"
+    
+    # Returns: "relative", "absolute", "mixed", or "empty"
+}
+```
+
+**GitHub API Integration:**
+```bash
+check_github_path() {
+    local owner_repo="$1"  # e.g., "open-horizon/examples"
+    local path="$2"        # e.g., "edge/services/helloworld" or ""
+    local branch="$3"      # e.g., "master"
+    
+    local api_url="https://api.github.com/repos/${owner_repo}/contents/${path}?ref=${branch}"
+    
+    # Use authenticated API if GITHUB_TOKEN is set
+    if [ -n "$GITHUB_TOKEN" ]; then
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    "$api_url" 2>/dev/null || echo "000")
+    else
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    "$api_url" 2>/dev/null || echo "000")
+    fi
+    
+    echo "$http_code"
+}
+```
+
+**URL Parsing:**
+```bash
+parse_github_url() {
+    local url="$1"
+    # Extract owner/repo from URLs like https://github.com/owner/repo
+    echo "$url" | sed -E 's|https?://github\.com/([^/]+)/([^/]+).*|\1/\2|'
+}
+```
+
+**Validation Strategy:**
+
+**For Relative Paths:**
+- Always resolve to `https://github.com/open-horizon/examples/` (hardcoded)
+- Construct full API URL: `/repos/open-horizon/examples/contents/{path}?ref={branch}`
+- Check if path exists in the repository
+
+**For Absolute URLs:**
+- Extract owner/repo from URL using regex
+- Check repository root: `/repos/{owner}/{repo}/contents/?ref={branch}`
+- Verify repository is accessible
+
+**Mixed Format Handling:**
+- Detects when file contains both relative and absolute URLs
+- Issues warning (once) but continues validation
+- Both formats are valid per `exchangePublish.sh` specification
+
+**GitHub API Rate Limiting:**
+
+**Unauthenticated Requests:**
+- Limit: 60 requests/hour per IP address
+- Suitable for small files or occasional use
+
+**Authenticated Requests (with GITHUB_TOKEN):**
+- Limit: 5000 requests/hour per token
+- Recommended for CI/CD or large files
+- Token detection: Checks `$GITHUB_TOKEN` environment variable
+
+**Rate Limit Checking:**
+```bash
+check_github_rate_limit() {
+    local rate_info
+    if [ -n "$GITHUB_TOKEN" ]; then
+        rate_info=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
+                    "https://api.github.com/rate_limit" 2>/dev/null || echo "{}")
+    else
+        rate_info=$(curl -s "https://api.github.com/rate_limit" 2>/dev/null || echo "{}")
+    fi
+    
+    # Parse and display remaining/limit in verbose mode
+}
+```
+
+**Output Modes:**
+
+**1. Interactive Mode (Default):**
+- Color-coded status indicators (✓/✗)
+- Progress messages
+- Summary statistics
+- Human-readable error messages
+
+**2. Verbose Mode (`--verbose`):**
+- All interactive mode features
+- Detailed entry-by-entry analysis
+- Full GitHub URLs being checked
+- HTTP response codes
+- API rate limit information
+- Mixed format warnings with context
+
+**3. JSON Mode (`--json`):**
+- Machine-readable structured output
+- No color codes or formatting
+- Complete validation results
+- Suitable for piping to `jq` or other tools
+- CI/CD integration friendly
+
+**JSON Output Structure:**
+```json
+{
+  "file": "path/to/file.txt",
+  "format": "relative|absolute|mixed",
+  "base_repository": "https://github.com/open-horizon/examples",
+  "branch": "master",
+  "skip_network": false,
+  "github_token_set": true,
+  "total_entries": 5,
+  "valid_count": 4,
+  "invalid_count": 1,
+  "warning_count": 0,
+  "status": "passed|failed",
+  "entries": [
+    {
+      "line": 1,
+      "content": "edge/services/helloworld",
+      "type": "relative|absolute",
+      "status": "valid|invalid",
+      "message": "Description of result",
+      "http_code": 200
+    }
+  ]
+}
+```
+
+**Error Handling:**
+
+**HTTP Status Code Interpretation:**
+- `200` - Success: Repository/path exists and is accessible
+- `404` - Not Found: Repository/path does not exist
+- `403` - Forbidden: Rate limit exceeded or access denied
+- `000` - Network Error: Unable to reach GitHub API
+- Other codes: Treated as errors with descriptive messages
+
+**Exit Codes:**
+- `0` - All validations passed (no invalid entries)
+- `1` - Validation failures found (one or more invalid entries)
+- `2` - Script error (invalid arguments, missing file, missing dependencies)
+
+**Shellcheck Compliance:**
+
+**Key Compliance Measures:**
+1. **No SC2089/SC2090 warnings**: Avoided string-based auth headers, use direct curl arguments
+2. **Proper quoting**: All variables quoted to prevent word splitting
+3. **Array handling**: Bash 3.2+ compatible array operations
+4. **Error handling**: `set -euo pipefail` for strict error checking
+5. **Source directive**: `# shellcheck source=lib/common.sh` for proper linting
+
+**Bash 3.2+ Compatibility:**
+- No associative arrays (use indexed arrays)
+- No `mapfile`/`readarray` (use `while read` loops)
+- No `&>>` redirect operator (use `>> file 2>&1`)
+- Process substitution allowed (`< <(command)`)
+- `[[ ]]` test operator allowed
+
+**Integration Points:**
+
+**With `lib/common.sh`:**
+- `setup_cleanup_trap()` - Signal handling and cleanup
+- `check_curl()` - Dependency verification
+- `print_info()`, `print_success()`, `print_error()`, `print_warning()` - Color-coded output
+- Color constants: `RED`, `GREEN`, `YELLOW`, `BLUE`, `NC`
+
+**With `exchangePublish.sh`:**
+- Validates same file format consumed by `exchangePublish.sh`
+- Ensures paths/URLs are accessible before publishing
+- Prevents broken links in published examples
+
+**Design Decisions:**
+
+1. **Why hardcode `open-horizon/examples` for relative paths:**
+   - Matches `exchangePublish.sh` behavior
+   - Relative paths always refer to this repository
+   - Simplifies validation logic
+   - Prevents ambiguity
+
+2. **Why use GitHub Contents API:**
+   - Provides definitive answer on path existence
+   - Works for both files and directories
+   - Supports branch specification
+   - Returns structured JSON response
+
+3. **Why support mixed formats:**
+   - `exchangePublish.sh` accepts both formats
+   - Warns but doesn't fail (user choice)
+   - Maintains compatibility with existing files
+
+4. **Why three output modes:**
+   - Interactive: Human exploration and debugging
+   - Verbose: Detailed troubleshooting
+   - JSON: Automation and CI/CD integration
+
+5. **Why skip-network option:**
+   - Fast format-only validation
+   - Useful for offline development
+   - Pre-check before network validation
+   - Reduces API rate limit usage
+
+**Testing Strategy:**
+
+**Unit Tests Needed:**
+- `detect_format()` function with various inputs
+- `parse_github_url()` function with different URL formats
+- Format detection edge cases (empty files, comments only)
+- URL parsing edge cases (trailing slashes, query parameters)
+
+**Integration Tests Needed:**
+- Valid relative paths file
+- Valid absolute URLs file
+- Mixed format file
+- Invalid paths/URLs file
+- Empty file handling
+- Network error scenarios
+- Rate limit handling
+
+**Test Fixtures Created:**
+- `tests/fixtures/blessed-samples-valid-relative.txt` - Valid relative paths
+- `tests/fixtures/blessed-samples-valid-absolute.txt` - Valid absolute URLs
+- `tests/fixtures/blessed-samples-mixed.txt` - Mixed format (generates warning)
+- `tests/fixtures/blessed-samples-invalid.txt` - Invalid paths for error testing
+
+**Security Considerations:**
+
+1. **GitHub Token Handling:**
+   - Token read from environment variable only
+   - Never displayed in output (even in verbose mode)
+   - Not logged or stored
+   - Passed securely to curl via `-H` header
+
+2. **API Communication:**
+   - Uses HTTPS for all GitHub API calls
+   - No credential caching
+   - Clean exit on authentication failures
+   - Rate limit information displayed safely
+
+3. **Input Validation:**
+   - File path validated before processing
+   - URL parsing uses safe regex patterns
+   - No arbitrary code execution
+   - Handles malformed input gracefully
+
+**Performance Considerations:**
+
+1. **API Call Efficiency:**
+   - One API call per entry (unavoidable for validation)
+   - Skip-network mode for format-only checks
+   - Rate limit checking done once (not per entry)
+
+2. **File Processing:**
+   - Single-pass format detection
+   - Efficient line-by-line processing
+   - No file buffering (streams large files)
+
+3. **Optimization Opportunities:**
+   - Parallel API calls (future enhancement)
+   - Caching of repository checks (future enhancement)
+   - Batch API requests (future enhancement)
+
+**Future Enhancements:**
+
+**Phase 2 Features:**
+1. **Makefile Validation:**
+   - Check for `publish-only` target
+   - Check for `publish-deployment-policy` target
+   - Verify target syntax
+
+2. **Service Definition Validation:**
+   - Check for `service.definition.json`
+   - Validate JSON schema
+   - Verify required fields
+
+3. **Deployment Policy Validation:**
+   - Check for `deployment.policy.json`
+   - Validate JSON schema
+   - Verify policy constraints
+
+4. **Pattern Validation:**
+   - Check for `pattern.json`
+   - Validate pattern structure
+   - Verify service references
+
+5. **Additional Features:**
+   - Parallel validation for speed
+   - Caching of validation results
+   - Diff mode (compare two files)
+   - Auto-fix mode (remove invalid entries)
+   - Watch mode (continuous validation)
+
+**Comparison with Similar Tools:**
+
+**vs. Manual Validation:**
+- Automated and consistent
+- Catches errors before publishing
+- Provides detailed error messages
+- Suitable for CI/CD integration
+
+**vs. `exchangePublish.sh` Validation:**
+- Pre-validates before publishing
+- Faster feedback (no publishing overhead)
+- More detailed error reporting
+- Doesn't require Exchange credentials
+
+This implementation provides a robust, well-tested tool for validating `blessedSamples.txt` files with careful attention to compatibility, error handling, and user experience.

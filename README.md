@@ -25,6 +25,7 @@ hzn-utils/
 ├── monitor-nodes.sh           # Real-time node monitoring utility
 ├── test-credentials.sh        # Credential validation tool
 ├── test-hzn.sh                # CLI installation test
+├── test-blessed-samples.sh    # Validate blessedSamples.txt files
 └── *.env                      # Credential files (not in git)
 ```
 
@@ -58,6 +59,7 @@ This repository contains several utility scripts for managing Open Horizon insta
 
 ### Testing Scripts
 - **`test-hzn.sh`** - Test Open Horizon CLI installation and configuration
+- **`test-blessed-samples.sh`** - Validate blessedSamples.txt files used by exchangePublish.sh
 
 ### Shared Library
 - **`lib/common.sh`** - Common functions used across all scripts including:
@@ -574,6 +576,149 @@ Advanced script to check if the authenticated user can list services at differen
 **Exit Codes:**
 - `0`: User CAN list services at all tested levels
 - `1`: User CANNOT list services at one or more levels (but can list own)
+### test-blessed-samples.sh (Blessed Samples Validator)
+
+Validates `blessedSamples.txt` files used by the Open Horizon `exchangePublish.sh` script. Checks file format and verifies GitHub repository accessibility using the GitHub API.
+
+**Usage:**
+```bash
+# Test default file (./blessedSamples.txt)
+./test-blessed-samples.sh
+
+# Test specific file
+./test-blessed-samples.sh tools/blessedSamples.txt
+
+# Verbose output with detailed checks
+./test-blessed-samples.sh --verbose tools/blessedSamples.txt
+
+# JSON output for CI/CD
+./test-blessed-samples.sh --json tools/blessedSamples.txt
+
+# Skip network checks (format validation only)
+./test-blessed-samples.sh --skip-network tools/blessedSamples.txt
+
+# With GitHub token for higher rate limits
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+./test-blessed-samples.sh tools/blessedSamples.txt
+```
+
+**Options:**
+- `-v, --verbose` - Show detailed validation output with API responses
+- `-j, --json` - Output JSON only (for scripting/automation)
+- `-b, --branch BRANCH` - Branch to check (default: master)
+- `-s, --skip-network` - Skip network checks (validate format only)
+- `-h, --help` - Show help message
+
+**Environment Variables:**
+- `GITHUB_TOKEN` - Optional GitHub personal access token for authenticated API calls (increases rate limit from 60 to 5000 requests/hour)
+
+**File Format:**
+The `blessedSamples.txt` file supports two formats:
+- **Relative paths**: `edge/services/helloworld` (always refers to `https://github.com/open-horizon/examples/`)
+- **Absolute URLs**: `https://github.com/open-horizon-services/web-helloworld-python`
+- Blank lines and comments (lines starting with `#`) are ignored
+
+**Validation Checks:**
+1. **Format Validation**: Checks syntax of each entry
+2. **Type Detection**: Identifies relative vs absolute URLs
+3. **Format Consistency**: Warns if file contains mixed formats
+4. **GitHub API Verification**: Confirms repositories/paths exist (unless `--skip-network`)
+
+**Output Modes:**
+
+**1. Interactive (Default):**
+```
+═══════════════════════════════════════════════════════════
+  Validating Blessed Samples File
+═══════════════════════════════════════════════════════════
+
+File: tools/blessedSamples.txt
+Format: relative
+Base Repository: https://github.com/open-horizon/examples (for relative paths)
+Branch: master
+
+ℹ Validating entries...
+
+✓ Line 1: edge/services/cpu_percent
+✓ Line 2: edge/services/gps
+✗ Line 3: edge/services/invalid_path
+  Error: Path not found in repository (HTTP 404)
+
+═══════════════════════════════════════════════════════════
+  Validation Summary
+═══════════════════════════════════════════════════════════
+
+Total Entries: 3
+Valid: 2
+Invalid: 1
+Warnings: 0
+
+Status: FAILED (1 error(s) found)
+```
+
+**2. Verbose Mode (`--verbose`):**
+Shows detailed information for each entry including:
+- Entry type (relative/absolute)
+- Full GitHub URL being checked
+- HTTP response codes
+- API rate limit information
+
+**3. JSON Mode (`--json`):**
+```json
+{
+  "file": "tools/blessedSamples.txt",
+  "format": "relative",
+  "base_repository": "https://github.com/open-horizon/examples",
+  "branch": "master",
+  "skip_network": false,
+  "github_token_set": true,
+  "total_entries": 3,
+  "valid_count": 2,
+  "invalid_count": 1,
+  "warning_count": 0,
+  "status": "failed",
+  "entries": [
+    {
+      "line": 1,
+      "content": "edge/services/cpu_percent",
+      "type": "relative",
+      "status": "valid",
+      "message": "Path exists in repository",
+      "http_code": 200
+    }
+  ]
+}
+```
+
+**Exit Codes:**
+- `0` - All validations passed
+- `1` - Validation failures found
+- `2` - Script error (invalid arguments, missing file, missing dependencies)
+
+**Use Cases:**
+- **Pre-commit validation**: Verify blessedSamples.txt before committing changes
+- **CI/CD integration**: Automated validation in GitHub Actions or other CI systems
+- **Local development**: Quick check before running exchangePublish.sh
+- **Troubleshooting**: Identify broken repository links or invalid paths
+
+**GitHub API Rate Limits:**
+- **Unauthenticated**: 60 requests/hour
+- **Authenticated** (with `GITHUB_TOKEN`): 5000 requests/hour
+- The script displays current rate limit status in verbose mode
+
+**Example Workflow:**
+```bash
+# 1. Validate format only (fast, no network)
+./test-blessed-samples.sh --skip-network tools/blessedSamples.txt
+
+# 2. Full validation with GitHub API
+export GITHUB_TOKEN=your_token_here
+./test-blessed-samples.sh tools/blessedSamples.txt
+
+# 3. Use in CI/CD pipeline
+./test-blessed-samples.sh --json tools/blessedSamples.txt | jq '.status'
+```
+
 - `2`: Error (invalid arguments, API error, authentication failure)
 
 ## Environment File Configuration
