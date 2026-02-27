@@ -1487,7 +1487,7 @@ Validates `blessedSamples.txt` files used by the Open Horizon `exchangePublish.s
 
 **Core Architecture:**
 1. **Initialization Phase:**
-   - Parse command line arguments (verbose, json, skip-network, branch)
+   - Parse command line arguments (verbose, json, skip-network, check-files, branch)
    - Load and validate file path
    - Check dependencies (curl required for network checks)
    - Set up cleanup trap handlers
@@ -1562,6 +1562,156 @@ parse_github_url() {
     # Extract owner/repo from URLs like https://github.com/owner/repo
     echo "$url" | sed -E 's|https?://github\.com/([^/]+)/([^/]+).*|\1/\2|'
 }
+
+**Phase 2A: File Existence Checks (--check-files flag):**
+
+When the `--check-files` flag is enabled, the script performs additional validation to verify that required Open Horizon service files exist in each repository path.
+
+**Required Files:**
+1. **Makefile** (required) - Build and publish automation
+2. **service.definition.json** (required) - Service metadata (checks both root and `horizon/` subdirectory)
+3. **deployment.policy.json** (optional) - Deployment constraints for policy-based deployments (checks both root and `horizon/` subdirectory)
+
+**Note**: `deployment.policy.json` is only required for services using policy-based deployment. Pattern-based deployments use `pattern.json` instead and do not require a deployment policy. The script checks for deployment.policy.json but does not fail validation if it's missing, as confirmed by the `exchangePublish.sh` script which only publishes deployment policies for specific samples (helloworld, cpu2evtstreams, operator examples) when the `-c` flag is used.
+
+**Implementation:**
+
+```bash
+# Check if a specific file exists in GitHub repository
+check_file_exists() {
+    local owner_repo="$1"
+    local file_path="$2"
+    local branch="$3"
+    
+    local api_url="https://api.github.com/repos/${owner_repo}/contents/${file_path}?ref=${branch}"
+    
+    local http_code
+    if [ -n "$GITHUB_TOKEN" ]; then
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    "$api_url" 2>/dev/null || echo "000")
+    else
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    "$api_url" 2>/dev/null || echo "000")
+    fi
+    
+    echo "$http_code"
+}
+
+# Validate required files exist in repository
+validate_required_files() {
+    local owner_repo="$1"
+    local base_path="$2"
+    local branch="$3"
+    
+    # Remove trailing slash from base_path if present
+    base_path="${base_path%/}"
+    
+    # Check for Makefile
+    local http_code
+    http_code=$(check_file_exists "$owner_repo" "${base_path}/Makefile" "$branch")
+    if [ "$http_code" = "200" ]; then
+        makefile_status="found"
+        makefile_path="${base_path}/Makefile"
+    fi
+    
+    # Check for service.definition.json (try root first, then horizon/)
+    http_code=$(check_file_exists "$owner_repo" "${base_path}/service.definition.json" "$branch")
+    if [ "$http_code" = "200" ]; then
+        service_def_status="found"
+        service_def_path="${base_path}/service.definition.json"
+    else
+        http_code=$(check_file_exists "$owner_repo" "${base_path}/horizon/service.definition.json" "$branch")
+        if [ "$http_code" = "200" ]; then
+            service_def_status="found"
+            service_def_path="${base_path}/horizon/service.definition.json"
+        fi
+    fi
+    
+    # Similar logic for deployment.policy.json...
+    
+    # Return JSON object with results
+    cat <<EOF
+{
+  "makefile": {
+    "status": "$makefile_status",
+    "path": "$makefile_path"
+  },
+  "service_definition": {
+    "status": "$service_def_status",
+    "path": "$service_def_path"
+  },
+  "deployment_policy": {
+    "status": "$deployment_policy_status",
+    "path": "$deployment_policy_path"
+  }
+}
+EOF
+}
+```
+
+**Data Storage Challenge:**
+
+The file check results are multi-line JSON objects that need to be stored alongside validation results. Using pipe-delimited strings causes issues because `read` stops at the first newline. 
+
+**Solution: Base64 Encoding**
+
+```bash
+# Store result with base64-encoded file checks
+local encoded_file_checks=""
+if [ "$CHECK_FILES" = true ] && [ -n "${file_check_results:-}" ]; then
+    encoded_file_checks=$(echo "$file_check_results" | base64)
+fi
+VALIDATION_RESULTS+=("$line_num|$entry|$entry_type|$result_status|$result_message|$http_code|$encoded_file_checks")
+
+# Later, decode when generating output
+if [ -n "$encoded_file_checks" ]; then
+    file_check_data=$(echo "$encoded_file_checks" | base64 -d 2>/dev/null || echo "")
+fi
+```
+
+This approach:
+- Preserves newlines and special characters in JSON
+- Works with pipe-delimited storage format
+- Compatible with both macOS and Linux base64 implementations
+- Gracefully handles decoding errors
+
+**JSON Output Enhancement:**
+
+When `--check-files` is enabled, each entry in the JSON output includes a `file_checks` object:
+
+```json
+{
+  "line": 4,
+  "content": "edge/services/cpu_percent",
+  "type": "relative",
+  "status": "invalid",
+  "message": "Missing required files: deployment.policy.json",
+  "http_code": 200,
+  "file_checks": {
+    "makefile": {
+      "status": "found",
+      "path": "edge/services/cpu_percent/Makefile"
+    },
+    "service_definition": {
+      "status": "found",
+      "path": "edge/services/cpu_percent/horizon/service.definition.json"
+    },
+    "deployment_policy": {
+      "status": "missing",
+      "path": ""
+    }
+  }
+}
+```
+
+**Performance Considerations:**
+
+- Each file check requires 1-3 additional API calls per entry (Makefile + 2 attempts for each JSON file)
+- For a file with 10 entries, this could mean 30-50 API calls total
+- Authenticated requests (with GITHUB_TOKEN) are strongly recommended
+- Consider using `--skip-network` for initial format validation, then `--check-files` for final validation
+
 ```
 
 **Validation Strategy:**

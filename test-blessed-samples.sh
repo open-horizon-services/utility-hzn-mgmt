@@ -16,6 +16,7 @@ source "${SCRIPT_DIR}/lib/common.sh"
 VERBOSE=false
 JSON_ONLY=false
 SKIP_NETWORK=false
+CHECK_FILES=false  # Phase 2A: Check for required files
 REPO_BASE="https://github.com/open-horizon/examples"  # Hardcoded for relative paths
 BRANCH="master"
 FILE_PATH=""
@@ -43,6 +44,7 @@ OPTIONS:
     -j, --json          Output JSON only (for scripting/automation)
     -b, --branch BRANCH Branch to check (default: master)
     -s, --skip-network  Skip network checks (validate format only)
+    -f, --check-files   Check for required files (Makefile, service.definition.json, etc.)
     -h, --help          Show this help message and exit
 
 ARGUMENTS:
@@ -60,6 +62,7 @@ EXAMPLES:
     $(basename "$0") --verbose                 # Detailed output
     $(basename "$0") --json                    # JSON output for CI/CD
     $(basename "$0") --skip-network            # Format validation only
+    $(basename "$0") --check-files             # Verify required files exist
     
     # With GitHub token for higher rate limits:
     export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
@@ -79,6 +82,10 @@ VALIDATION CHECKS:
     ✓ Path format (relative vs absolute)
     ✓ Format consistency (warns on mixed formats)
     ✓ GitHub repository accessibility via API (if not --skip-network)
+    ✓ Required files exist (if --check-files):
+      - Makefile
+      - service.definition.json or horizon/service.definition.json
+      - deployment.policy.json or horizon/deployment.policy.json
 
 EXIT CODES:
     0 - All validations passed
@@ -102,6 +109,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -s|--skip-network)
             SKIP_NETWORK=true
+            shift
+            ;;
+        -f|--check-files)
+            CHECK_FILES=true
             shift
             ;;
         -b|--branch)
@@ -218,6 +229,101 @@ parse_github_url() {
     echo "$url" | sed -E 's|https?://github\.com/([^/]+)/([^/]+).*|\1/\2|'
 }
 
+# Check if a specific file exists in GitHub repository
+# Args: owner_repo, file_path, branch
+# Returns: HTTP status code
+check_file_exists() {
+    local owner_repo="$1"
+    local file_path="$2"
+    local branch="$3"
+    
+    local api_url="https://api.github.com/repos/${owner_repo}/contents/${file_path}?ref=${branch}"
+    
+    local http_code
+    if [ -n "$GITHUB_TOKEN" ]; then
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    -H "Authorization: token $GITHUB_TOKEN" \
+                    "$api_url" 2>/dev/null || echo "000")
+    else
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+                    "$api_url" 2>/dev/null || echo "000")
+    fi
+    
+    echo "$http_code"
+}
+
+# Validate required files exist in repository
+# Args: owner_repo, base_path, branch
+# Returns: JSON object with file check results
+validate_required_files() {
+    local owner_repo="$1"
+    local base_path="$2"
+    local branch="$3"
+    
+    # Remove trailing slash from base_path if present
+    base_path="${base_path%/}"
+    
+    # Initialize results
+    local makefile_status="missing"
+    local service_def_status="missing"
+    local deployment_policy_status="missing"
+    local makefile_path=""
+    local service_def_path=""
+    local deployment_policy_path=""
+    
+    # Check for Makefile
+    local http_code
+    http_code=$(check_file_exists "$owner_repo" "${base_path}/Makefile" "$branch")
+    if [ "$http_code" = "200" ]; then
+        makefile_status="found"
+        makefile_path="${base_path}/Makefile"
+    fi
+    
+    # Check for service.definition.json (try root first, then horizon/)
+    http_code=$(check_file_exists "$owner_repo" "${base_path}/service.definition.json" "$branch")
+    if [ "$http_code" = "200" ]; then
+        service_def_status="found"
+        service_def_path="${base_path}/service.definition.json"
+    else
+        http_code=$(check_file_exists "$owner_repo" "${base_path}/horizon/service.definition.json" "$branch")
+        if [ "$http_code" = "200" ]; then
+            service_def_status="found"
+            service_def_path="${base_path}/horizon/service.definition.json"
+        fi
+    fi
+    
+    # Check for deployment.policy.json (try root first, then horizon/)
+    http_code=$(check_file_exists "$owner_repo" "${base_path}/deployment.policy.json" "$branch")
+    if [ "$http_code" = "200" ]; then
+        deployment_policy_status="found"
+        deployment_policy_path="${base_path}/deployment.policy.json"
+    else
+        http_code=$(check_file_exists "$owner_repo" "${base_path}/horizon/deployment.policy.json" "$branch")
+        if [ "$http_code" = "200" ]; then
+            deployment_policy_status="found"
+            deployment_policy_path="${base_path}/horizon/deployment.policy.json"
+        fi
+    fi
+    
+    # Return JSON object with results
+    cat <<EOF
+{
+  "makefile": {
+    "status": "$makefile_status",
+    "path": "$makefile_path"
+  },
+  "service_definition": {
+    "status": "$service_def_status",
+    "path": "$service_def_path"
+  },
+  "deployment_policy": {
+    "status": "$deployment_policy_status",
+    "path": "$deployment_policy_path"
+  }
+}
+EOF
+}
+
 # Check if GitHub repository/path exists using GitHub API
 check_github_path() {
     local owner_repo="$1"
@@ -248,6 +354,7 @@ validate_entry() {
     local http_code="000"
     local owner_repo=""
     local path=""
+    local file_check_results=""
     
     # Determine entry type
     if [[ "$entry" =~ ^https?:// ]]; then
@@ -306,9 +413,67 @@ validate_entry() {
             else
                 result_message="Repository accessible"
             fi
-            VALID_COUNT=$((VALID_COUNT + 1))
-            if [ "$JSON_ONLY" = false ]; then
-                print_success "✓ Line $line_num: $entry"
+            
+            # Additional file checks if requested
+            if [ "$CHECK_FILES" = true ]; then
+                if [ "$VERBOSE" = true ] && [ "$JSON_ONLY" = false ]; then
+                    echo "  Checking required files..."
+                fi
+                
+                # Validate required files exist
+                file_check_results=$(validate_required_files "$owner_repo" "$path" "$BRANCH")
+                
+                # Parse results
+                local makefile_status service_def_status deployment_policy_status
+                if command -v jq >/dev/null 2>&1; then
+                    makefile_status=$(echo "$file_check_results" | jq -r '.makefile.status')
+                    service_def_status=$(echo "$file_check_results" | jq -r '.service_definition.status')
+                    deployment_policy_status=$(echo "$file_check_results" | jq -r '.deployment_policy.status')
+                else
+                    # Fallback parsing without jq
+                    makefile_status=$(echo "$file_check_results" | grep -A1 '"makefile"' | grep '"status"' | cut -d'"' -f4)
+                    service_def_status=$(echo "$file_check_results" | grep -A1 '"service_definition"' | grep '"status"' | cut -d'"' -f4)
+                    deployment_policy_status=$(echo "$file_check_results" | grep -A1 '"deployment_policy"' | grep '"status"' | cut -d'"' -f4)
+                fi
+                
+                # Check if all required files are found
+                # Required: Makefile and service.definition.json
+                # Optional: deployment.policy.json (only needed for policy-based deployments)
+                local missing_files=()
+                [ "$makefile_status" != "found" ] && missing_files+=("Makefile")
+                [ "$service_def_status" != "found" ] && missing_files+=("service.definition.json")
+                
+                if [ ${#missing_files[@]} -gt 0 ]; then
+                    result_status="invalid"
+                    result_message="Missing required files: ${missing_files[*]}"
+                    INVALID_COUNT=$((INVALID_COUNT + 1))
+                    if [ "$JSON_ONLY" = false ]; then
+                        print_error "✗ Line $line_num: $entry"
+                        echo "  Error: $result_message"
+                    fi
+                else
+                    VALID_COUNT=$((VALID_COUNT + 1))
+                    if [ "$VERBOSE" = true ] && [ "$JSON_ONLY" = false ]; then
+                        print_success "  ✓ All required files found"
+                        # Note optional files
+                        if [ "$deployment_policy_status" = "found" ]; then
+                            echo "  ℹ deployment.policy.json found (optional)"
+                        else
+                            echo "  ℹ deployment.policy.json not found (optional - only needed for policy-based deployments)"
+                        fi
+                    fi
+                    if [ "$JSON_ONLY" = false ]; then
+                        print_success "✓ Line $line_num: $entry"
+                    fi
+                    result_message="Path exists and all required files found"
+                fi
+                
+                # file_check_results variable is available for storing
+            else
+                VALID_COUNT=$((VALID_COUNT + 1))
+                if [ "$JSON_ONLY" = false ]; then
+                    print_success "✓ Line $line_num: $entry"
+                fi
             fi
         elif [ "$http_code" = "404" ]; then
             result_status="invalid"
@@ -350,8 +515,13 @@ validate_entry() {
         fi
     fi
     
-    # Store result for JSON output
-    VALIDATION_RESULTS+=("$line_num|$entry|$entry_type|$result_status|$result_message|$http_code")
+    # Store result for JSON output (with optional file check results)
+    # Encode file_check_results in base64 to preserve newlines
+    local encoded_file_checks=""
+    if [ "$CHECK_FILES" = true ] && [ -n "${file_check_results:-}" ]; then
+        encoded_file_checks=$(echo "$file_check_results" | base64)
+    fi
+    VALIDATION_RESULTS+=("$line_num|$entry|$entry_type|$result_status|$result_message|$http_code|$encoded_file_checks")
     
     if [ "$VERBOSE" = true ] && [ "$JSON_ONLY" = false ]; then
         echo ""
@@ -373,6 +543,7 @@ output_json() {
     echo "  \"base_repository\": \"$REPO_BASE\","
     echo "  \"branch\": \"$BRANCH\","
     echo "  \"skip_network\": $SKIP_NETWORK,"
+    echo "  \"check_files\": $CHECK_FILES,"
     echo "  \"github_token_set\": $([ -n "$GITHUB_TOKEN" ] && echo "true" || echo "false"),"
     echo "  \"total_entries\": $TOTAL_ENTRIES,"
     echo "  \"valid_count\": $VALID_COUNT,"
@@ -382,8 +553,15 @@ output_json() {
     echo "  \"entries\": ["
     
     local first=true
+    
     for result in "${VALIDATION_RESULTS[@]}"; do
-        IFS='|' read -r line_num entry entry_type status message http_code <<< "$result"
+        IFS='|' read -r line_num entry entry_type status message http_code encoded_file_checks <<< "$result"
+        
+        # Decode file check data if present
+        local file_check_data=""
+        if [ -n "$encoded_file_checks" ]; then
+            file_check_data=$(echo "$encoded_file_checks" | base64 -d 2>/dev/null || echo "")
+        fi
         
         if [ "$first" = true ]; then
             first=false
@@ -400,6 +578,13 @@ output_json() {
         if [ -n "$http_code" ] && [ "$http_code" != "000" ]; then
             echo -n ", \"http_code\": $http_code"
         fi
+        
+        # Add file check results if available
+        if [ -n "$file_check_data" ] && [ "$CHECK_FILES" = true ]; then
+            echo -n ", \"file_checks\": $file_check_data"
+            file_check_data=""  # Reset for next entry
+        fi
+        
         echo -n "}"
     done
     

@@ -597,6 +597,9 @@ Validates `blessedSamples.txt` files used by the Open Horizon `exchangePublish.s
 # Skip network checks (format validation only)
 ./test-blessed-samples.sh --skip-network tools/blessedSamples.txt
 
+# Check for required files (Makefile, service.definition.json, deployment.policy.json)
+./test-blessed-samples.sh --check-files tools/blessedSamples.txt
+
 # With GitHub token for higher rate limits
 export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 ./test-blessed-samples.sh tools/blessedSamples.txt
@@ -607,6 +610,7 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
 - `-j, --json` - Output JSON only (for scripting/automation)
 - `-b, --branch BRANCH` - Branch to check (default: master)
 - `-s, --skip-network` - Skip network checks (validate format only)
+- `-f, --check-files` - Verify required files exist (Makefile, service.definition.json, deployment.policy.json)
 - `-h, --help` - Show help message
 
 **Environment Variables:**
@@ -623,6 +627,10 @@ The `blessedSamples.txt` file supports two formats:
 2. **Type Detection**: Identifies relative vs absolute URLs
 3. **Format Consistency**: Warns if file contains mixed formats
 4. **GitHub API Verification**: Confirms repositories/paths exist (unless `--skip-network`)
+5. **Required Files Check** (with `--check-files`):
+   - **Required**: Verifies `Makefile` exists
+   - **Required**: Verifies `service.definition.json` exists (checks both root and `horizon/` subdirectory)
+   - **Optional**: Checks for `deployment.policy.json` (only needed for policy-based deployments, not for pattern-based deployments)
 
 **Output Modes:**
 
@@ -671,6 +679,7 @@ Shows detailed information for each entry including:
   "base_repository": "https://github.com/open-horizon/examples",
   "branch": "master",
   "skip_network": false,
+  "check_files": false,
   "github_token_set": true,
   "total_entries": 3,
   "valid_count": 2,
@@ -685,6 +694,36 @@ Shows detailed information for each entry including:
       "status": "valid",
       "message": "Path exists in repository",
       "http_code": 200
+    }
+  ]
+}
+```
+
+**With `--check-files` flag:**
+```json
+{
+  "entries": [
+    {
+      "line": 1,
+      "content": "edge/services/cpu_percent",
+      "type": "relative",
+      "status": "valid",
+      "message": "Path exists and all required files found",
+      "http_code": 200,
+      "file_checks": {
+        "makefile": {
+          "status": "found",
+          "path": "edge/services/cpu_percent/Makefile"
+        },
+        "service_definition": {
+          "status": "found",
+          "path": "edge/services/cpu_percent/horizon/service.definition.json"
+        },
+        "deployment_policy": {
+          "status": "found",
+          "path": "edge/services/cpu_percent/deployment.policy.json"
+        }
+      }
     }
   ]
 }
@@ -715,8 +754,15 @@ Shows detailed information for each entry including:
 export GITHUB_TOKEN=your_token_here
 ./test-blessed-samples.sh tools/blessedSamples.txt
 
-# 3. Use in CI/CD pipeline
+# 3. Deep validation with required files check
+./test-blessed-samples.sh --check-files tools/blessedSamples.txt
+
+# 4. Use in CI/CD pipeline
 ./test-blessed-samples.sh --json tools/blessedSamples.txt | jq '.status'
+
+# 5. Complete validation for production
+export GITHUB_TOKEN=your_token_here
+./test-blessed-samples.sh --check-files --verbose tools/blessedSamples.txt
 ```
 
 - `2`: Error (invalid arguments, API error, authentication failure)
