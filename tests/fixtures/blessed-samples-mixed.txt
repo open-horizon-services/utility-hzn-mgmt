@@ -1,0 +1,6 @@
+# Mixed format blessedSamples.txt (should generate warning)
+# Contains both relative and absolute URLs
+
+edge/services/helloworld
+https://github.com/open-horizon/examples
+edge/services/gps

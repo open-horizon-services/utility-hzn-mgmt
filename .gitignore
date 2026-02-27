@@ -14,9 +14,13 @@ tests/**/.bats-*
 *.swp
 *.swo
 *~
-.DS_Store
 
-# IDE files
+# Bob-Shell specific
+.bob/
+.bobignore
+
+# IDE and editor files
+.cursor/
 .vscode/
 .idea/
 *.iml
@@ -36,4 +40,5 @@ build/
 *.zip
 
 # OS files
+.DS_Store
 Thumbs.db

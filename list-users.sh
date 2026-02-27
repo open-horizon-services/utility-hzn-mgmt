@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Script to select credentials from .env files and list Open Horizon users in an organization
-# Usage: ./list-users.sh [org-id]
-#   If org-id is not provided, uses HZN_ORG_ID from the selected .env file
+# Usage: ./list-users.sh [OPTIONS] [org-id]
 
 # Strict error handling
 set -euo pipefail
@@ -11,14 +10,57 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
+# Show usage information
+show_usage() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [org-id]
+
+List Open Horizon users in an organization.
+
+OPTIONS:
+    -h, --help      Show this help message and exit
+
+ARGUMENTS:
+    org-id          Optional: Organization ID to query
+                    If not provided, uses HZN_ORG_ID from environment/credentials
+
+EXAMPLES:
+    $(basename "$0")                    # List users in auth organization
+    $(basename "$0") myorg              # List users in specific organization
+
+REQUIRED ENVIRONMENT VARIABLES (in .env file or environment):
+    HZN_EXCHANGE_URL          The Horizon Exchange API URL
+    HZN_ORG_ID                Your organization ID (for authentication)
+    HZN_EXCHANGE_USER_AUTH    User credentials (user:password)
+
+NOTES:
+    - Can be called standalone or from list-orgs.sh
+    - If credentials are in environment, skips .env file selection
+    - Requires hzn CLI to be installed and agent running
+
+EOF
+    exit 0
+}
+
 # Setup cleanup trap
 # shellcheck disable=SC2119  # Function doesn't use positional parameters
 setup_cleanup_trap
 
 # Parse command line arguments
 TARGET_ORG=""
-if [ $# -gt 0 ]; then
-    TARGET_ORG="$1"
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_usage
+            ;;
+        *)
+            TARGET_ORG="$1"
+            shift
+            ;;
+    esac
+done
+
+if [ -n "$TARGET_ORG" ]; then
     print_info "Organization specified: $TARGET_ORG"
     echo ""
 fi

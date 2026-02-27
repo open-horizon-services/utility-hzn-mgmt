@@ -1,0 +1,5 @@
+# Invalid blessedSamples.txt with non-existent paths
+# These paths should fail validation
+
+edge/services/nonexistent-service
+https://github.com/open-horizon/nonexistent-repo

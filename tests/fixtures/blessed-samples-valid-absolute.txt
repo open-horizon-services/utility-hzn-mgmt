@@ -1,0 +1,5 @@
+# Valid blessedSamples.txt with absolute URLs only
+# This file contains absolute GitHub repository URLs
+
+https://github.com/open-horizon/examples
+https://github.com/open-horizon/anax

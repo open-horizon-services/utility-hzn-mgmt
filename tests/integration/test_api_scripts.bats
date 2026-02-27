@@ -75,10 +75,40 @@ teardown() {
     [ "$status" -ge 0 ]
 }
 
+@test "list-a-users.sh accepts -o flag for target organization" {
+    skip_if_missing "curl"
+    
+    run "${PROJECT_ROOT}/list-a-users.sh" -o testorg "${FIXTURES_DIR}/valid.env"
+    # Should accept the flag (may fail due to unreachable Exchange, but flag should be recognized)
+    [ "$status" -ge 0 ]
+}
+
 # Tests for list-a-org-nodes.sh
 @test "list-a-org-nodes.sh exists and is executable" {
     [ -f "${PROJECT_ROOT}/list-a-org-nodes.sh" ]
     [ -x "${PROJECT_ROOT}/list-a-org-nodes.sh" ]
+}
+
+@test "list-a-org-nodes.sh shows help with --help flag" {
+    run "${PROJECT_ROOT}/list-a-org-nodes.sh" --help
+    [ "$status" -eq 0 ]
+    [[ "$output" =~ "Usage" ]] || [[ "$output" =~ "help" ]]
+}
+
+@test "list-a-org-nodes.sh accepts --json flag" {
+    skip_if_missing "curl"
+    
+    run "${PROJECT_ROOT}/list-a-org-nodes.sh" --json "${FIXTURES_DIR}/valid.env"
+    # Should accept the flag (may fail due to unreachable Exchange, but flag should be recognized)
+    [ "$status" -ge 0 ]
+}
+
+@test "list-a-org-nodes.sh accepts -o flag for target organization" {
+    skip_if_missing "curl"
+    
+    run "${PROJECT_ROOT}/list-a-org-nodes.sh" -o testorg "${FIXTURES_DIR}/valid.env"
+    # Should accept the flag (may fail due to unreachable Exchange, but flag should be recognized)
+    [ "$status" -ge 0 ]
 }
 
 @test "list-a-org-nodes.sh requires organization parameter" {

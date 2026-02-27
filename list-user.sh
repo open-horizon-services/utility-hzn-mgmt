@@ -2,7 +2,7 @@
 
 # Script to display the current authenticated Open Horizon user
 # This validates credentials and shows user information including admin privileges
-# Usage: ./list-user.sh [env-file]
+# Usage: ./list-user.sh [OPTIONS] [env-file]
 
 # Strict error handling
 set -euo pipefail
@@ -11,15 +11,60 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/lib/common.sh"
 
+# Show usage information
+show_usage() {
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS] [env-file]
+
+Display the current authenticated Open Horizon user information.
+Validates credentials and shows user details including admin privileges.
+
+OPTIONS:
+    -h, --help      Show this help message and exit
+
+ARGUMENTS:
+    env-file        Optional: Path to .env file with credentials
+                    If not provided, will prompt to select from available .env files
+
+EXAMPLES:
+    $(basename "$0")                    # Interactive mode - select .env file
+    $(basename "$0") mycreds.env        # Use specific .env file
+
+REQUIRED ENVIRONMENT VARIABLES (in .env file):
+    HZN_EXCHANGE_URL          The Horizon Exchange API URL
+    HZN_ORG_ID                Your organization ID
+    HZN_EXCHANGE_USER_AUTH    User credentials (user:password)
+
+OUTPUT:
+    Displays user information including:
+    - User ID
+    - Email address
+    - Organization admin status
+    - Hub admin status
+    - Last updated timestamp
+    - Updated by information
+
+EOF
+    exit 0
+}
+
 # Setup cleanup trap
 # shellcheck disable=SC2119  # Function doesn't use positional parameters
 setup_cleanup_trap
 
 # Parse command line arguments
 ENV_FILE_ARG=""
-if [ $# -gt 0 ]; then
-    ENV_FILE_ARG="$1"
-fi
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            show_usage
+            ;;
+        *)
+            ENV_FILE_ARG="$1"
+            shift
+            ;;
+    esac
+done
 
 # Check if credentials are already set in environment (called from another script)
 SKIP_ENV_SELECTION=false

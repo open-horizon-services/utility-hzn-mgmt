@@ -18,6 +18,7 @@ Usage: $(basename "$0") [OPTIONS] [env-file]
 List Open Horizon organizations and optionally view users in a selected organization.
 
 OPTIONS:
+    -o, --org ORG   Specify organization to view users (skips interactive prompt)
     -h, --help      Show this help message and exit
 
 ARGUMENTS:
@@ -25,8 +26,10 @@ ARGUMENTS:
                     If not provided, will prompt to select from available .env files
 
 EXAMPLES:
-    $(basename "$0")                    # Interactive mode - select .env file
-    $(basename "$0") mycreds.env        # Use specific .env file
+    $(basename "$0")                    # Interactive mode - select .env file and org
+    $(basename "$0") mycreds.env        # Use specific .env file, select org interactively
+    $(basename "$0") -o myorg           # Select .env file, use specified org
+    $(basename "$0") -o myorg mycreds.env  # Use specific .env file and org
 
 REQUIRED ENVIRONMENT VARIABLES (in .env file):
     HZN_EXCHANGE_URL          The Horizon Exchange API URL
@@ -39,8 +42,13 @@ EOF
 
 # Parse command line arguments
 ENV_FILE_ARG=""
+SPECIFIED_ORG=""
 while [[ $# -gt 0 ]]; do
     case $1 in
+        -o|--org)
+            SPECIFIED_ORG="$2"
+            shift 2
+            ;;
         -h|--help)
             show_usage
             ;;
@@ -112,37 +120,65 @@ if [ ${#orgs[@]} -eq 0 ]; then
     exit 0
 fi
 
-# Prompt user to select an organization to view users
-echo ""
-echo "═══════════════════════════════════════════════════════════════"
-print_info "Select an organization to view its users:"
-echo ""
-echo "Available organizations:"
-for i in "${!orgs[@]}"; do
-    echo "  $((i+1)). ${orgs[$i]}"
-done
-echo "  0. Exit without viewing users"
-echo ""
+# Determine which organization to use
+selected_org=""
 
-# Prompt user to select an organization
-while true; do
-    read -r -p "Select an organization (0-${#orgs[@]}): " org_selection
+if [ -n "$SPECIFIED_ORG" ]; then
+    # Organization was specified on command line - validate it exists
+    org_found=false
+    for org in "${orgs[@]}"; do
+        if [ "$org" = "$SPECIFIED_ORG" ]; then
+            org_found=true
+            selected_org="$SPECIFIED_ORG"
+            break
+        fi
+    done
     
-    if [[ "$org_selection" == "0" ]]; then
-        print_info "Exiting without viewing users"
-        exit 0
+    if [ "$org_found" = false ]; then
+        print_error "Specified organization '$SPECIFIED_ORG' not found in available organizations"
+        echo ""
+        echo "Available organizations:"
+        for org in "${orgs[@]}"; do
+            echo "  - $org"
+        done
+        exit 1
     fi
     
-    if [[ "$org_selection" =~ ^[0-9]+$ ]] && [ "$org_selection" -ge 1 ] && [ "$org_selection" -le "${#orgs[@]}" ]; then
-        selected_org="${orgs[$((org_selection-1))]}"
-        break
-    else
-        print_error "Invalid selection. Please enter a number between 0 and ${#orgs[@]}"
-    fi
-done
-
-print_success "Selected organization: $selected_org"
-echo ""
+    print_success "Using specified organization: $selected_org"
+    echo ""
+else
+    # Prompt user to select an organization to view users
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════"
+    print_info "Select an organization to view its users:"
+    echo ""
+    echo "Available organizations:"
+    for i in "${!orgs[@]}"; do
+        echo "  $((i+1)). ${orgs[$i]}"
+    done
+    echo "  0. Exit without viewing users"
+    echo ""
+    
+    # Prompt user to select an organization
+    while true; do
+        read -r -p "Select an organization (0-${#orgs[@]}): " org_selection
+        
+        if [[ "$org_selection" == "0" ]]; then
+            print_info "Exiting without viewing users"
+            exit 0
+        fi
+        
+        if [[ "$org_selection" =~ ^[0-9]+$ ]] && [ "$org_selection" -ge 1 ] && [ "$org_selection" -le "${#orgs[@]}" ]; then
+            selected_org="${orgs[$((org_selection-1))]}"
+            break
+        else
+            print_error "Invalid selection. Please enter a number between 0 and ${#orgs[@]}"
+        fi
+    done
+    
+    print_success "Selected organization: $selected_org"
+    echo ""
+fi
 
 # Check if list-users.sh exists
 if [ ! -f "./list-users.sh" ]; then

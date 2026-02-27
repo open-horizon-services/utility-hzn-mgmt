@@ -10,8 +10,8 @@ set -euo pipefail
 VERBOSE=false
 JSON_ONLY=false
 ENV_FILE=""
+TARGET_ORG=""
 
-# Parse command line arguments
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -23,12 +23,22 @@ while [[ $# -gt 0 ]]; do
             JSON_ONLY=true
             shift
             ;;
+        -o|--org)
+            if [[ -n "${2:-}" ]]; then
+                TARGET_ORG="$2"
+                shift 2
+            else
+                echo "Error: --org requires an organization ID argument"
+                exit 2
+            fi
+            ;;
         -h|--help)
             echo "Usage: $0 [OPTIONS] [ENV_FILE]"
             echo ""
             echo "List Open Horizon users using REST API"
             echo ""
             echo "Options:"
+            echo "  -o, --org ORG    Target organization to query (default: auth org from HZN_ORG_ID)"
             echo "  -v, --verbose    Show detailed JSON response from API with headers"
             echo "  -j, --json       Output raw JSON only (no headers, colors, or messages)"
             echo "  -h, --help       Show this help message"
@@ -42,6 +52,7 @@ while [[ $# -gt 0 ]]; do
             echo "Examples:"
             echo "  $0                          # Interactive mode, prompts for .env file"
             echo "  $0 mycreds.env              # Use specific .env file"
+            echo "  $0 -o other-org             # Query users in different organization"
             echo "  $0 --json mycreds.env       # JSON output with specific .env file"
             echo "  $0 --verbose                # Verbose output, prompts for .env file"
             exit 0
@@ -72,8 +83,21 @@ selected_file=""  # Will be set by select_env_file
 select_env_file "$ENV_FILE" || exit 1
 load_credentials "$selected_file" || exit 1
 
+# Set target org to auth org if not specified
+if [ -z "$TARGET_ORG" ]; then
+    TARGET_ORG="$HZN_ORG_ID"
+fi
+
 # Display configuration
 display_config
+
+# Show target org if different from auth org
+if [ "$TARGET_ORG" != "$HZN_ORG_ID" ]; then
+    if [ "$JSON_ONLY" = false ]; then
+        print_info "Target Organization: $TARGET_ORG"
+        echo ""
+    fi
+fi
 
 # Check if curl is installed
 check_curl || exit 1
@@ -95,11 +119,11 @@ if [ "$JSON_ONLY" = false ]; then
 fi
 
 # Display the API request in verbose mode
-display_api_request "GET" "${BASE_URL}/orgs/${HZN_ORG_ID}/users"
+display_api_request "GET" "${BASE_URL}/orgs/${TARGET_ORG}/users"
 
 # Make the API call
 # Note: HZN_EXCHANGE_URL should already include the API version (e.g., /v1)
-response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${HZN_ORG_ID}/users" 2>&1)
+response=$(curl -sS -k -w "\n%{http_code}" -u "$FULL_AUTH" "${BASE_URL}/orgs/${TARGET_ORG}/users" 2>&1)
 
 # Extract HTTP status code (last line)
 http_code=$(echo "$response" | tail -n1)
@@ -120,7 +144,7 @@ if [ "$http_code" -ne 200 ]; then
         echo ""
         echo "Troubleshooting authentication:"
         echo "  1. Verify HZN_EXCHANGE_USER_AUTH format is 'username:password'"
-        echo "  2. Check that the user exists in organization '$HZN_ORG_ID'"
+        echo "  2. Check that the user exists in organization '$TARGET_ORG'"
         echo "  3. Verify the password is correct"
         echo "  4. Try using the hzn CLI to test: hzn exchange user list"
         echo ""
@@ -132,7 +156,7 @@ if [ "$http_code" -ne 200 ]; then
         echo "  1. Verify your credentials are correct"
         echo "  2. Check that the Exchange URL is reachable: $BASE_URL"
         echo "  3. Ensure your user has permission to list users"
-        echo "  4. Check if the organization '$HZN_ORG_ID' exists"
+        echo "  4. Check if the organization '$TARGET_ORG' exists"
     fi
     exit 1
 fi
@@ -227,7 +251,7 @@ elif [ "$VERBOSE" = true ]; then
     
 else
     # Default mode: simple list of user names with admin status
-    print_header "Users in Organization: $HZN_ORG_ID"
+    print_header "Users in Organization: $TARGET_ORG"
     echo ""
     
     for user in "${user_names[@]}"; do
@@ -262,19 +286,19 @@ fi
 # Additional info (skip in JSON-only mode)
 if [ "$JSON_ONLY" = false ]; then
     echo ""
-    print_info "API Endpoint: ${BASE_URL}/orgs/${HZN_ORG_ID}/users"
+    print_info "API Endpoint: ${BASE_URL}/orgs/${TARGET_ORG}/users"
     print_info "Authenticated as: ${HZN_ORG_ID}/${AUTH_USER}"
     echo ""
 
     # Summary of user permissions
     if [ "$total_users" -gt 0 ]; then
-        print_success "Successfully retrieved all users in organization '$HZN_ORG_ID'"
+        print_success "Successfully retrieved all users in organization '$TARGET_ORG'"
         echo ""
         echo "User role legend:"
         echo -e "  ${YELLOW}[Org Admin]${NC}  - Administrative access within this organization (admin: true)"
         echo -e "  ${MAGENTA}[Hub Admin]${NC}  - Hub-level administrative access (admin: false, hubAdmin: true)"
         echo "  (no badge)   - Regular user with standard permissions"
     else
-        print_warning "No users found in organization '$HZN_ORG_ID'"
+        print_warning "No users found in organization '$TARGET_ORG'"
     fi
 fi

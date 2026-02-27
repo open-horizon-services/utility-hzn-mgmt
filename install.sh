@@ -1,0 +1,2 @@
+#!/bin/bash
+sudo -s -E curl -sSL https://raw.githubusercontent.com/open-horizon/anax/refs/heads/master/agent-install/agent-install.sh | sudo -sE bash -s -- -i anax: -n ./node.policy.json -k ./agent-install.cfg -c css: -w '*' -T 120

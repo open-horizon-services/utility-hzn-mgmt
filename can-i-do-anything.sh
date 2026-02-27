@@ -352,7 +352,7 @@ if [ "$JSON_ONLY" = true ]; then
     echo ""
     echo "  ],"
     echo "  \"summary\": {"
-    echo "    \"total_scripts\": ${#SCRIPTS[@]},"
+    echo "    \"total_scripts\": ${#ALL_SCRIPTS[@]},"
     echo "    \"runnable_scripts\": ${#runnable_scripts[@]},"
     echo "    \"restricted_scripts\": ${#restricted_scripts[@]}"
     echo "  }"
@@ -472,7 +472,7 @@ elif [ "$VERBOSE" = true ]; then
     
     print_header "Summary"
     echo ""
-    echo "Total scripts available: ${#runnable_scripts[@]} of ${#SCRIPTS[@]}"
+    echo "Total scripts available: ${#runnable_scripts[@]} of ${#ALL_SCRIPTS[@]}"
     if [ ${#restricted_scripts[@]} -gt 0 ]; then
         echo "Restricted scripts: ${#restricted_scripts[@]}"
     fi
